@@ -1,0 +1,4 @@
+# Demo fixtures
+All records are fictional. Missing phones intentionally disable real sends. Use a local-only demo identity for staff and manager. Generate due/overdue task dates relative to the demo run date so Today remains useful. DEMO-NORWAY is an unpublished package with no real itinerary, price or dates.
+For payment demonstration only, choose clearly labelled fictional accepted terms (e.g. AED 1,000 total, AED 300 required deposit). Partial deposit fixture: AED 100 verified. Confirmation pending fixture: AED 300 verified, not yet confirmed. Confirmed fixture: AED 300 verified, AED 700 balance. These figures are solely UI/test values and must never populate a real quote or published package.
+Priority policy is draft: unknown/mixed visas and the unresolved P3 group case remain unranked. Add synthetic shifted import fixtures when implementing migration rather than distributing the uploaded customer workbook.
