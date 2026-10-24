@@ -2,6 +2,8 @@
 
 Start with staging. The application configuration exists in `wrangler.staging.jsonc`; production is separate in `wrangler.jsonc`. Nothing has been provisioned or deployed by this guide.
 
+Update: initial staging database/queue provisioning has now been performed during assisted account setup. See [actual setup progress](21_CLOUDFLARE_SETUP_PROGRESS.md) before running any creation commands below again. DNS, R2, Access and deployment are still pending.
+
 ## 1. Sign in and select the account
 
 In the project terminal:

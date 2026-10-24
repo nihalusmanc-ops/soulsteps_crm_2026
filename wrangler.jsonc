@@ -17,7 +17,7 @@
     "APP_ENV": "production",
     "BUSINESS_TIMEZONE": "Asia/Dubai",
     "META_LIVE_INTAKE_ENABLED": "false",
-    "PUBLIC_APP_URL": "https://crm.soulsteps.invalid",
+    "PUBLIC_APP_URL": "https://crm.thesoulsteps.com",
     "ACCESS_TEAM_DOMAIN": "",
     "ACCESS_AUDIENCE": ""
   },
@@ -78,8 +78,9 @@
   },
   "routes": [
     {
-      "pattern": "crm.soulsteps.invalid",
+      "pattern": "crm.thesoulsteps.com",
       "custom_domain": true
     }
-  ]
+  ],
+  "account_id": "242a0210bb9d13956b9a1eff3a9fb5d1"
 }

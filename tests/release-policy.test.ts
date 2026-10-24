@@ -21,6 +21,15 @@ const evidence = () => ({
 });
 describe("release evidence cannot turn demo configuration into an approved deployment", () => {
   it("accepts safe isolated templates while blocking those templates as actual release config", () => {
+    const placeholder = structuredClone(production);
+    placeholder.vars.PUBLIC_APP_URL = "https://unconfigured.invalid";
+    placeholder.routes = [
+      { pattern: "unconfigured.invalid", custom_domain: true },
+    ];
+    placeholder.d1_databases[0].database_id =
+      "00000000-0000-0000-0000-000000000000";
+    placeholder.vars.ACCESS_TEAM_DOMAIN = "";
+    placeholder.vars.ACCESS_AUDIENCE = "";
     expect(
       inspectRelease(
         production,
@@ -32,7 +41,7 @@ describe("release evidence cannot turn demo configuration into an approved deplo
       ).every((c) => c.passed),
     ).toBe(true);
     const checks = inspectRelease(
-      production,
+      placeholder,
       staging,
       "production",
       evidence(),

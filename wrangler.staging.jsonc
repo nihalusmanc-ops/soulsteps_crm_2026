@@ -17,7 +17,7 @@
     "APP_ENV": "staging",
     "BUSINESS_TIMEZONE": "Asia/Dubai",
     "META_LIVE_INTAKE_ENABLED": "false",
-    "PUBLIC_APP_URL": "https://staging.soulsteps.invalid",
+    "PUBLIC_APP_URL": "https://crm-staging.thesoulsteps.com",
     "ACCESS_TEAM_DOMAIN": "",
     "ACCESS_AUDIENCE": ""
   },
@@ -25,7 +25,7 @@
     {
       "binding": "DB",
       "database_name": "soulsteps-staging",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "ee7afca5-5b69-40e9-a20e-355225a78afd",
       "migrations_dir": "drizzle/migrations"
     }
   ],
@@ -78,8 +78,9 @@
   },
   "routes": [
     {
-      "pattern": "staging.soulsteps.invalid",
+      "pattern": "crm-staging.thesoulsteps.com",
       "custom_domain": true
     }
-  ]
+  ],
+  "account_id": "242a0210bb9d13956b9a1eff3a9fb5d1"
 }
