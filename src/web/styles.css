@@ -2187,3 +2187,138 @@ th {
   margin-bottom: 24px;
   max-width: 650px;
 }
+.management-content {
+  padding: 24px;
+  min-width: 0;
+}
+.management-content > .section-head {
+  padding-left: 0;
+  padding-right: 0;
+}
+.wrap-cell {
+  white-space: normal;
+  word-break: break-word;
+  max-width: 280px;
+  min-width: 120px;
+}
+.stage-legend {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 17px;
+  margin-top: 20px;
+}
+.stage-editor {
+  display: grid;
+  grid-template-columns: 1fr 70px;
+  gap: 12px;
+}
+.weekday-picker {
+  border: 1px solid var(--line);
+  padding: 14px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.weekday-picker legend {
+  font-size: 11px;
+  color: var(--muted);
+}
+.stage-editor input[type="color"] {
+  min-width: 50px;
+  padding: 4px;
+}
+.rule-editor {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+  padding: 12px 0;
+}
+.rules-editor {
+  margin: 15px 0 20px;
+}
+.rule-editor .checkbox {
+  font-size: 12px;
+  text-transform: capitalize;
+}
+.rule-editor select {
+  width: 80px;
+}
+.rule-manager .rule-preview > div {
+  align-items: flex-start;
+}
+.rule-manager .rule-preview > div > span:last-child {
+  font-size: 11px;
+  white-space: nowrap;
+}
+.rule-manager .rule-preview {
+  margin: 18px 0;
+  max-height: 300px;
+  overflow: auto;
+}
+.due-reminders {
+  margin-bottom: 24px;
+}
+.due-reminders > div:not(.section-head) {
+  padding: 14px 24px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+}
+.attempt-line {
+  border-top: 1px solid var(--line);
+  padding: 10px 0;
+  word-break: break-word;
+  font-size: 11px;
+}
+.management-content .facts {
+  margin-top: 25px;
+}
+.trip-actions {
+  flex-wrap: wrap;
+}
+@media (max-width: 760px) {
+  .management-content {
+    padding: 17px;
+  }
+  .stage-legend {
+    grid-template-columns: 1fr;
+  }
+  .rule-manager .rule-preview > div {
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+  .due-reminders .section-head {
+    flex-wrap: wrap;
+  }
+  .management-content h2 {
+    font-size: 17px;
+  }
+  .management-content .section-head {
+    flex-wrap: wrap;
+  }
+}
+.row-meta {
+  flex-wrap: wrap;
+}
+.customer > span:last-child {
+  min-width: 0;
+}
+.customer strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.row-meta .badge {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.detail-summary {
+  overflow-wrap: anywhere;
+}
+.overview-grid .source-row strong {
+  flex-shrink: 0;
+}

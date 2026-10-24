@@ -31,3 +31,13 @@ Missing content and credentials do not block the independent M2–M4 engineering
 - Core entities have relational keys/indexes/constraints; extended qualification and terms use typed JSON in the relevant table. SQL-backed filtering/aggregation and richer multi-departure editing remain follow-on work.
 - Reversals and rank overrides retain reason, actor and time. Issued quotation correction/version UI is still follow-on work; existing snapshots are immutable.
 - Live release needs real Access/storage configuration, approved content/policies, restore verification and staging review. No deployment, external send, service purchase or production import occurred. See docs/14 for commands and verification.
+
+## Milestone 3 implementation — 24 October 2026
+
+- In-app reminders are one per task, backed by an atomic outbox, Cron reconciliation, Queue leases, retry history and explicit failed-job retry. Marking seen never completes a call task. No customer-send job kind exists.
+- Proposed defaults are 09:00–18:00 Monday–Friday, Dubai timezone, 24-hour follow-up suggestion, zero-minute reminder lead and five attempts. Accepted appointments are never rescheduled by these defaults.
+- Stage label/colour changes are versioned and contrast-validated; codes and historical activity stay stable. Outbound customer automation remains fixed false.
+- Rule publication uses an explicit, expiring server preview and trip/enquiry revision snapshot. Only the target trip's eligible enquiries change; overrides and closed/confirmed/held history remain untouched. Family/friends all-visa cases remain disabled in the working draft until reviewed. Isolated test policy changes are not production business approval.
+- Manual-use trip content can be published without fabricating missing dates, prices or itinerary. Price/itinerary automation remains disabled; accepted quotes retain original snapshots.
+- Private daily/on-demand backups include consistent operational tables and checkpointed receipt copies. The local restore drill passed all 22 table-count and two receipt-hash checks; restored checks are held until explicit review. Retention/automatic cleanup remains an owner decision; no objects are automatically deleted.
+- Reconciliation reports missing/unlinked receipt objects with an upload grace period. Production Access/identities/resource provisioning, live monitoring and release checks remain pending. M4 historical import preview is next; no live data, messages, deployment or purchase occurred.

@@ -2,7 +2,10 @@ import type { Command, State, Trip } from "../../shared/domain";
 import type { Identity, StoredFile } from "../../shared/api";
 import type { CrmRepository } from "./repository";
 const pendingKeys = new Map<string, string>();
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+export async function request<T>(
+  path: string,
+  options: RequestInit = {},
+): Promise<T> {
   const response = await fetch(`/api${path}`, {
     credentials: "same-origin",
     ...options,
@@ -26,7 +29,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
   return response.json() as Promise<T>;
 }
-async function mutate<T>(
+export async function mutate<T>(
   path: string,
   body: unknown,
   method = "POST",

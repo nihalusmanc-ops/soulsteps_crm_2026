@@ -1,3 +1,7 @@
+import { Management, RuleManager, PublishTrip } from "./Management";
+import { DueReminders } from "./DueReminders";
+import { useWorkspace, management } from "./data/management";
+import { Settings as SettingsIcon } from "lucide-react";
 import {
   createContext,
   useContext,
@@ -66,12 +70,22 @@ const Context = createContext<{
   role: string;
 }>({} as never);
 const useCRM = () => useContext(Context);
+function useStageLabels() {
+  const cfg = useWorkspace();
+  return Object.fromEntries(
+    Object.entries(cfg.settings.stages).map(([code, value]) => [
+      code,
+      value.label,
+    ]),
+  ) as typeof stages;
+}
 const nav = [
   { to: "/", label: "Today", icon: LayoutDashboard },
   { to: "/enquiries", label: "Enquiries", icon: Users },
   { to: "/trips", label: "Trips", icon: Map },
   { to: "/bookings", label: "Bookings", icon: Wallet },
   { to: "/overview", label: "Overview", icon: Compass },
+  { to: "/settings", label: "Settings", icon: SettingsIcon },
 ];
 function Badge({
   children,
@@ -83,11 +97,20 @@ function Badge({
   return <span className={`badge ${kind}`}>{children}</span>;
 }
 function StageBadge({ stage }: { stage: Stage }) {
+  const cfg = useWorkspace();
+  const label = cfg.settings.stages[stage];
   return (
-    <Badge kind={stage.toLowerCase()}>
+    <span
+      className="badge"
+      style={{
+        color: label.color,
+        background: "#fff",
+        border: `1px solid ${label.color}33`,
+      }}
+    >
       <i />
-      {stages[stage]}
-    </Badge>
+      {label.label}
+    </span>
   );
 }
 function Avatar({ name }: { name: string }) {
@@ -203,7 +226,11 @@ export default function App() {
         <div className="workspace-label">YOUR WORKSPACE</div>
         <nav>
           {nav
-            .filter((n) => role === "manager" || n.to !== "/overview")
+            .filter(
+              (n) =>
+                role === "manager" ||
+                !["/overview", "/settings"].includes(n.to),
+            )
             .map((n) => (
               <NavLink
                 key={n.to}
@@ -240,7 +267,9 @@ export default function App() {
                   onChange={async (e) => {
                     try {
                       await session.switchLocal(e.target.value);
-                      client.removeQueries({ queryKey: ["crm"] });
+                      client.removeQueries({
+                        predicate: (q) => q.queryKey[0] !== "me",
+                      });
                       await client.invalidateQueries({ queryKey: ["me"] });
                       navigate("/");
                     } catch (error) {
@@ -322,6 +351,19 @@ export default function App() {
           ) : (
             <Context.Provider value={{ data: query.data, run, role }}>
               <Routes>
+                <Route
+                  path="/settings"
+                  element={
+                    role === "manager" ? (
+                      <Management />
+                    ) : (
+                      <Empty
+                        title="Manager view"
+                        text="Settings require a manager identity."
+                      />
+                    )
+                  }
+                />
                 <Route
                   path="/"
                   element={<Today onCreate={() => setCreate(true)} />}
@@ -438,7 +480,7 @@ export default function App() {
         <footer>
           Soulsteps CRM{" "}
           <span>Thoughtful journeys start with thoughtful follow-ups.</span>
-          <span>Persistence checkpoint · v0.2</span>
+          <span>Reliability checkpoint · v0.3</span>
         </footer>
       </div>
       {toast && (
@@ -534,6 +576,7 @@ function Today({ onCreate }: { onCreate: () => void }) {
           New enquiry
         </Button>
       </Heading>
+      <DueReminders />
       <div className="stats">
         <Stat
           label="Overdue actions"
@@ -600,7 +643,8 @@ function Today({ onCreate }: { onCreate: () => void }) {
                       <span>
                         {e.response !== "none"
                           ? e.response.replaceAll("_", " ")
-                          : "Norway"}
+                          : data.trips.find((t) => t.id === e.tripId)
+                              ?.destination || "Trip unqualified"}
                       </span>
                     </div>
                   </div>
@@ -684,8 +728,13 @@ function Today({ onCreate }: { onCreate: () => void }) {
           <div className="draft-note">
             <ShieldCheck size={20} />
             <p>
-              <strong>Trip-fit rules are draft</strong>Unresolved visa and group
-              cases stay in Needs qualification.
+              <strong>
+                {data.trips.some((t) => t.activeRuleVersion)
+                  ? "Reviewed trip-fit versions"
+                  : "Trip-fit rules are draft"}
+              </strong>
+              Unresolved visa and group cases stay in Needs qualification.
+              Manual overrides are preserved.
             </p>
           </div>
         </aside>
@@ -694,6 +743,7 @@ function Today({ onCreate }: { onCreate: () => void }) {
   );
 }
 function Enquiries({ onCreate }: { onCreate: () => void }) {
+  const stages = useStageLabels();
   const { data } = useCRM();
   const [q, setQ] = useState("");
   const [stage, setStage] = useState("");
@@ -864,7 +914,9 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
         <div className="resultsbar">
           <span>
             <strong>{filtered.length}</strong> enquiries{" "}
-            <span className="muted">· Norway · Demo staff</span>
+            <span className="muted">
+              · {data.trips.length} trips · assigned records
+            </span>
           </span>
           <div>
             <select
@@ -976,7 +1028,10 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
                       key={e.id}
                     >
                       <strong>{e.name}</strong>
-                      <small>Norway · Demo staff</small>
+                      <small>
+                        {data.trips.find((t) => t.id === e.tripId)?.destination}{" "}
+                        · {e.owner}
+                      </small>
                       <Fit e={e} />
                       <div>
                         <Clock3 size={13} />
@@ -992,13 +1047,17 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
         )}
       </section>
       <p className="micro">
-        Draft trip-fit policy · Trip fit and buying interest are independent.
-        Open a record to change stage with an activity trail.
+        {data.trips.some((t) => t.activeRuleVersion)
+          ? "Reviewed trip-fit versions"
+          : "Draft trip-fit policy"}{" "}
+        · Trip fit and buying interest are independent. Open a record to change
+        stage with an activity trail.
       </p>
     </>
   );
 }
 function Detail() {
+  const stages = useStageLabels();
   const { id } = useParams();
   const { data, run, role } = useCRM();
   const e = data.enquiries.find((e) => e.id === id);
@@ -1242,7 +1301,12 @@ function Detail() {
                     </div>
                     <div>
                       <span>Availability</span>
-                      <strong>{e.availability} · manually checked</strong>
+                      <strong>
+                        {e.availability} ·{" "}
+                        {e.availability === "pending"
+                          ? "not yet checked"
+                          : "recorded by staff"}
+                      </strong>
                     </div>
                     <div>
                       <span>Desired departure</span>
@@ -1914,27 +1978,46 @@ function Trips() {
   const { data, run, role } = useCRM();
   const [editing, setEditing] = useState<Trip | null>(null);
   const [preview, setPreview] = useState(false);
-  const [policy, setPolicy] = useState<Trip["groupVisaPolicy"]>("review");
+  const [newTrip, setNewTrip] = useState(false);
+  const [ruleTrip, setRuleTrip] = useState("");
+  const [publishing, setPublishing] = useState<Trip | null>(null);
   return (
     <>
       <Heading
         eyebrow="THE JOURNEYS YOU CREATE"
         title="Trips"
         subtitle="Keep approved content, commercial terms and trip-fit rules together."
-      />
+      >
+        {role === "manager" && (
+          <Button onClick={() => setNewTrip(true)}>
+            <Plus size={16} />
+            New trip
+          </Button>
+        )}
+      </Heading>
       <div className="trips-grid">
         {data.trips.map((t) => (
           <section className="panel trip-card" key={t.id}>
             <div className="trip-art" aria-label="Abstract mountain landscape">
-              <span className="trip-coordinate">69° N / 18° E</span>
+              <span className="trip-coordinate">
+                {t.id === "DEMO-NORWAY" ? "69° N / 18° E" : "DRAFT JOURNEY"}
+              </span>
               <span className="mountain mountain-one" />
               <span className="mountain mountain-two" />
               <span className="mountain mountain-three" />
               <div className="trip-art-label">
-                <span>NORTHERN HORIZONS</span>
+                <span>
+                  {t.id === "DEMO-NORWAY"
+                    ? "NORTHERN HORIZONS"
+                    : "YOUR NEXT JOURNEY"}
+                </span>
                 <strong>{t.destination}</strong>
               </div>
-              <Badge kind="draft">Draft trip</Badge>
+              <Badge kind={t.status === "published" ? "confirmed" : "draft"}>
+                {t.status === "published"
+                  ? "Published · manual use"
+                  : "Draft trip"}
+              </Badge>
             </div>
             <div className="trip-body">
               <div className="eyebrow">
@@ -1972,10 +2055,16 @@ function Trips() {
                 >
                   Edit trip details
                 </Button>
+                {role === "manager" && (
+                  <Button variant="outline" onClick={() => setPublishing(t)}>
+                    Review publication
+                  </Button>
+                )}
                 <Button
+                  disabled={role !== "manager"}
                   variant="ghost"
                   onClick={() => {
-                    setPolicy(t.groupVisaPolicy);
+                    setRuleTrip(t.id);
                     setPreview(true);
                   }}
                 >
@@ -2029,6 +2118,51 @@ function Trips() {
           </div>
         </div>
       </div>
+      <Modal
+        open={newTrip}
+        onClose={() => setNewTrip(false)}
+        title="Create draft trip"
+        description="Add a fixed or bespoke journey without inventing dates, prices or itinerary content."
+      >
+        <form
+          onSubmit={async (ev) => {
+            ev.preventDefault();
+            const f = new FormData(ev.currentTarget);
+            if (
+              await run(() =>
+                management.createTrip({
+                  name: String(f.get("name")),
+                  destination: String(f.get("destination")),
+                  description: String(f.get("description") || ""),
+                  type: String(f.get("type")) as "fixed" | "bespoke",
+                }),
+              )
+            )
+              setNewTrip(false);
+          }}
+        >
+          <label>
+            Trip name
+            <input name="name" required maxLength={150} />
+          </label>
+          <label>
+            Destination
+            <input name="destination" required maxLength={150} />
+          </label>
+          <label>
+            Journey type
+            <select name="type">
+              <option value="fixed">Fixed</option>
+              <option value="bespoke">Bespoke</option>
+            </select>
+          </label>
+          <label>
+            Draft description
+            <textarea name="description" />
+          </label>
+          <Button type="submit">Create draft</Button>
+        </form>
+      </Modal>
       <Modal
         open={!!editing}
         onClose={() => setEditing(null)}
@@ -2122,42 +2256,22 @@ function Trips() {
       <Modal
         open={preview}
         onClose={() => setPreview(false)}
-        title="Norway trip-fit rule preview"
-        description="Draft demo policy. This preview does not activate production ranking or recompute existing records."
+        title="Trip-fit rule preview"
+        description="Review affected profiles before publishing a version. Overrides and historical closed profiles are preserved."
       >
-        <label>
-          Family / friends with all visas
-          <select
-            value={policy}
-            onChange={(e) =>
-              setPolicy(e.target.value as Trip["groupVisaPolicy"])
-            }
-          >
-            <option value="review">Needs qualification · unresolved</option>
-            <option value="P3">Proposed P3</option>
-            <option value="P6">Alternative P6</option>
-          </select>
-        </label>
-        <div className="rule-preview">
-          {data.enquiries.slice(0, 8).map((e) => {
-            const fit = classify(e.group, e.visa, policy);
-            return (
-              <div key={e.id}>
-                <span>
-                  {e.group} · {e.visa} visas
-                </span>
-                <Badge kind={fit.rank ? "rank" : "qualification"}>
-                  {fit.rank || "Needs qualification"}
-                </Badge>
-              </div>
-            );
-          })}
-        </div>
-        <p className="micro">
-          Couple/solo rules precede group rules. Mixed and missing visa answers
-          always need qualification. P3/P6 approval is still a business
-          decision.
-        </p>
+        {ruleTrip && (
+          <RuleManager tripId={ruleTrip} done={() => setPreview(false)} />
+        )}
+      </Modal>
+      <Modal
+        open={!!publishing}
+        onClose={() => setPublishing(null)}
+        title="Review trip publication"
+        description="Publish approved draft content for manual CRM use."
+      >
+        {publishing && (
+          <PublishTrip trip={publishing} done={() => setPublishing(null)} />
+        )}
       </Modal>
     </>
   );
@@ -2225,7 +2339,11 @@ function Bookings() {
                       </small>
                     </td>
                     <td>
-                      Norway<small>Departure pending</small>
+                      {data.trips.find((t) => t.id === e.tripId)?.destination}
+                      <small>
+                        {data.trips.find((t) => t.id === e.tripId)?.departure ||
+                          "Departure pending"}
+                      </small>
                     </td>
                     <td>
                       {dateTime(e.booking!.confirmedAt)}
@@ -2267,6 +2385,7 @@ function Bookings() {
   );
 }
 function Overview() {
+  const stages = useStageLabels();
   const { data } = useCRM();
   const permission = useQuery({
     queryKey: ["reports-access"],
@@ -2442,6 +2561,48 @@ function Overview() {
           {!cohort.some((e) => ["LOST", "NOT_SUITABLE"].includes(e.stage)) && (
             <p>No lost enquiries in this cohort.</p>
           )}
+        </section>
+        <section className="panel">
+          <div className="section-head">
+            <h2>Trips in this cohort</h2>
+            <span className="muted">Created-date cohort</span>
+          </div>
+          {data.trips.map((t) => (
+            <div className="source-row" key={t.id}>
+              <span>{t.name}</span>
+              <strong>
+                {cohort.filter((e) => e.tripId === t.id).length} enquiries ·{" "}
+                {confirmed.filter((e) => e.tripId === t.id).length} confirmed
+              </strong>
+            </div>
+          ))}
+        </section>
+        <section className="panel">
+          <div className="section-head">
+            <h2>Ageing enquiries</h2>
+            <span className="muted">Current open · older than 7 days</span>
+          </div>
+          {open
+            .filter((e) => Date.parse(e.createdAt) < Date.now() - 7 * 86400000)
+            .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+            .slice(0, 10)
+            .map((e) => (
+              <Link to={"/enquiries/" + e.id} className="source-row" key={e.id}>
+                <span>
+                  {e.name}
+                  <small>{e.owner}</small>
+                </span>
+                <strong>
+                  {Math.floor(
+                    (Date.now() - Date.parse(e.createdAt)) / 86400000,
+                  )}{" "}
+                  days
+                </strong>
+              </Link>
+            ))}
+          {!open.some(
+            (e) => Date.parse(e.createdAt) < Date.now() - 7 * 86400000,
+          ) && <p className="micro">No open enquiries older than 7 days.</p>}
         </section>
       </div>
       <p className="micro">

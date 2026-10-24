@@ -2,7 +2,7 @@
 
 Soulsteps CRM is a working **fictional, browser-local demo**, not a production customer system. All supplied starter documents remain intact. The first review checkpoint in docs/09 is implemented. M2–M6 are not represented as finished.
 
-> Historical M1 checkpoint. Milestone 2 now replaces browser storage with D1 and adds API permissions and private receipts. Follow [the current setup and handover](docs/14_MILESTONE_2_HANDOVER.md) instead of the historical commands and limitations below.
+> Historical M1 checkpoint. Milestone 3 adds D1/API permissions, private receipts/backups, durable checks and manager controls. Follow [the current setup and handover](docs/15_MILESTONE_3_HANDOVER.md) instead of the historical commands and limitations below.
 
 ## Run locally
 

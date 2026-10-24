@@ -32,5 +32,27 @@
       "binding": "FILES_BUCKET",
       "bucket_name": "soulsteps-private-receipts"
     }
-  ]
+  ],
+  "triggers": {
+    "crons": [
+      "*/5 * * * *"
+    ]
+  },
+  "queues": {
+    "producers": [
+      {
+        "binding": "JOBS_QUEUE",
+        "queue": "soulsteps-local-jobs"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "soulsteps-local-jobs",
+        "max_batch_size": 1,
+        "max_batch_timeout": 1,
+        "max_retries": 3,
+        "dead_letter_queue": "soulsteps-local-dead-letters"
+      }
+    ]
+  }
 }

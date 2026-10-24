@@ -1,4 +1,4 @@
-﻿import { test, expect, type APIRequestContext } from "@playwright/test";
+import { test, expect, type APIRequestContext } from "@playwright/test";
 const origin = "http://127.0.0.1:8791";
 const headers = { Origin: origin, "X-Soulsteps-Request": "1" };
 async function command(
@@ -284,6 +284,7 @@ test("repeat enquiry reuses a customer and survives a new browser context", asyn
   );
   const enquiry = await response.json();
   expect(enquiry.customerId).toBe(first.customerId);
+  expect(enquiry.ownerId).toBe("DEMO-STAFF");
   expect(enquiry.id).not.toBe(first.id);
   await fresh.close();
 });

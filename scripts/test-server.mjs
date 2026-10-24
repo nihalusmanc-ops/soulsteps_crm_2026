@@ -1,4 +1,4 @@
-﻿import { spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 import { mkdtempSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 mkdirSync(".wrangler", { recursive: true });
@@ -26,7 +26,7 @@ await run([
   "DB",
   "--local",
   "--config",
-  "wrangler.local.jsonc",
+  "wrangler.test.jsonc",
   "--persist-to",
   persist,
 ]);
@@ -38,7 +38,7 @@ const worker = spawn(
     "dev",
     "--local",
     "--config",
-    "wrangler.local.jsonc",
+    "wrangler.test.jsonc",
     "--ip",
     "127.0.0.1",
     "--port",

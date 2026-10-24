@@ -1,4 +1,4 @@
-﻿import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "vitest";
 import { generateKeyPair, SignJWT, createLocalJWKSet, exportJWK } from "jose";
 import { validateAccessToken, localFixtureAllowed } from "../src/server/auth";
 import type { Bindings } from "../src/server/types";

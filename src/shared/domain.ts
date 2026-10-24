@@ -1,3 +1,4 @@
+import type { Rule } from "./management";
 import { z } from "zod";
 export const stages = {
   NEW: "New enquiry",
@@ -67,6 +68,8 @@ export type Enquiry = {
   travellers: number | null;
   rank: Rank | null;
   rankReason: string;
+  rankRuleVersion?: number;
+  rankComputedAt?: string;
   override?: { rank: Rank; reason: string; actor?: string; at?: string };
   response: string;
   owner: string;
@@ -99,6 +102,10 @@ export type Trip = {
   deposit: number | null;
   version: number;
   groupVisaPolicy: "review" | "P3" | "P6";
+  activeRuleVersion?: number;
+  activeRules?: Rule[];
+  activeContentVersion?: number;
+  publishedAt?: string;
 };
 export type State = { version: 1; enquiries: Enquiry[]; trips: Trip[] };
 export const money = (amount: number) =>

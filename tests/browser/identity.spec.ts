@@ -1,4 +1,4 @@
-﻿import { test, expect } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 test("local identity switch is backed by server permissions", async ({
   page,
 }) => {

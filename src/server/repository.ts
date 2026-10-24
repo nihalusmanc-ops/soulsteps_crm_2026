@@ -1,3 +1,5 @@
+import { taskOutbox } from "./settings";
+import { evaluateRules, eligibleForRecompute } from "../shared/management";
 import { drizzle } from "drizzle-orm/d1";
 import { eq } from "drizzle-orm";
 import { trips as tripTable } from "../../drizzle/schema";
@@ -85,12 +87,17 @@ export class Repository {
     return {
       version: 1,
       enquiries,
-      trips: trips.map((t) => ({
-        ...(t.data as Trip),
-        id: t.id,
-        version: t.version,
-        name: t.name,
-      })),
+      trips: trips.map((t) => {
+        const { writeToken, ...data } = t.data as Trip & {
+          writeToken?: string;
+        };
+        return {
+          ...data,
+          id: t.id,
+          version: t.version,
+          name: t.name,
+        };
+      }),
     };
   }
   async enquiry(id: string) {
@@ -171,6 +178,29 @@ export class Repository {
         "BUSINESS_RULE",
         e instanceof Error ? e.message : "Invalid action.",
       );
+    }
+    const activeTrip = trip[0]?.data as Trip;
+    if (command.type === "qualify" && !before.override) {
+      if (!eligibleForRecompute(before)) {
+        after.rank = before.rank;
+        after.rankReason = before.rankReason;
+        after.rankRuleVersion = before.rankRuleVersion;
+        after.rankComputedAt = before.rankComputedAt;
+      } else if (activeTrip.activeRules) {
+        const fit = evaluateRules(
+          activeTrip.activeRules,
+          after.group,
+          after.visa,
+        );
+        after.rank = fit.rank;
+        after.rankReason = fit.reason;
+        after.rankRuleVersion = activeTrip.activeRuleVersion;
+        after.rankComputedAt = new Date().toISOString();
+      } else if (!this.actor.local) {
+        after.rank = null;
+        after.rankReason =
+          "Needs qualification: no reviewed rule version is active.";
+      }
     }
     const token = crypto.randomUUID();
     const now = new Date().toISOString();
@@ -284,6 +314,14 @@ export class Repository {
           ],
         ),
       );
+    writes.push(taskOutbox(this.db, id, { id, token }));
+    writes.push(
+      guarded(
+        "UPDATE scheduled_actions SET status='cancelled',lease_until=NULL,updated_at=? WHERE enquiry_id=? AND status IN ('pending','queued','processing','held') AND (task_id IN (SELECT id FROM tasks WHERE status<>'pending') OR EXISTS(SELECT 1 FROM enquiries WHERE id=? AND stage IN ('CONFIRMED','LOST','NOT_SUITABLE','ON_HOLD'))) AND " +
+          guard,
+        [now, id, id],
+      ),
+    );
     const response = {
       revision: after.revision,
       ...(after.booking ? { reference: after.booking.reference } : {}),
@@ -366,7 +404,7 @@ export class Repository {
         : (
             await this.db
               .prepare(
-                "SELECT id FROM users WHERE active=1 AND role='staff' ORDER BY created_at,id LIMIT 1",
+                `SELECT id FROM users WHERE active=1 AND role='staff' ORDER BY ${this.actor.local ? "CASE WHEN id='DEMO-STAFF' THEN 0 ELSE 1 END," : ""}created_at,id LIMIT 1`,
               )
               .first<{ id: string }>()
           )?.id;
@@ -500,6 +538,19 @@ export class Repository {
         400,
         "POLICY_REVIEW_REQUIRED",
         "Use the reviewed rule publication workflow before changing ranking policy.",
+      );
+    const previous = JSON.parse(current.data) as Trip;
+    if (
+      JSON.stringify(trip.activeRules) !==
+        JSON.stringify(previous.activeRules) ||
+      trip.activeRuleVersion !== previous.activeRuleVersion ||
+      trip.activeContentVersion !== previous.activeContentVersion ||
+      trip.publishedAt !== previous.publishedAt
+    )
+      throw new ApiError(
+        400,
+        "READ_ONLY_METADATA",
+        "Use reviewed publication actions for active trip versions.",
       );
     const next = { ...trip, status: "draft", version: trip.version + 1 };
     const token = crypto.randomUUID();

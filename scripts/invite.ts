@@ -1,4 +1,4 @@
-﻿import { spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { writeFileSync, unlinkSync, mkdirSync } from "node:fs";
 const args = process.argv.slice(2);
 const get = (key: string) => args[args.indexOf(key) + 1];

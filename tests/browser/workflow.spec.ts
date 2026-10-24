@@ -67,14 +67,14 @@ test("search, shared pipeline filters, draft editing and keyboard modal", async 
   await page.getByRole("button", { name: "Pipeline", exact: true }).click();
   await expect(page.locator(".pipeline-card")).toHaveCount(1);
   await page.goto("/trips");
-  await page.getByRole("button", { name: "Edit trip details" }).click();
+  await page.getByRole("button", { name: "Edit trip details" }).first().click();
   await page.getByLabel("Trip name").fill("Norway · QA draft");
   await page.getByRole("button", { name: "Save draft trip" }).click();
   await page.reload();
   await expect(
     page.getByRole("heading", { name: "Norway · QA draft" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Preview fit rules" }).click();
+  await page.getByRole("button", { name: "Preview fit rules" }).first().click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).not.toBeVisible();
@@ -93,6 +93,7 @@ test("responsive screens have no document overflow or runtime errors", async ({
       "/trips",
       "/bookings",
       "/overview",
+      "/settings",
     ]) {
       await page.goto(route);
       await expect(page.locator("h1")).toBeVisible();

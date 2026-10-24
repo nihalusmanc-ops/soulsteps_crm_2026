@@ -162,7 +162,7 @@ describe("daily workflow", () => {
   });
 });
 import { manualWhatsAppUrl } from "../src/shared/domain";
-import app from "../src/server/index";
+import { app } from "../src/server/index";
 describe("manual contacts and closed API boundary", () => {
   it("never constructs a link from partial or absent phones", () => {
     expect(manualWhatsAppUrl(null)).toBeNull();

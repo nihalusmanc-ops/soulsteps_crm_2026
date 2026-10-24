@@ -1,6 +1,7 @@
 import type { Identity } from "../shared/api";
 export type Bindings = {
   DB: D1Database;
+  JOBS_QUEUE: Queue<{ id: string }>;
   FILES_BUCKET: R2Bucket;
   ASSETS: Fetcher;
   APP_ENV: string;

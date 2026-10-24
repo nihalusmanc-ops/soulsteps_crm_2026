@@ -219,3 +219,143 @@ export const audit = sqliteTable(
   },
   (t) => [index("audit_object_time").on(t.objectId, t.createdAt)],
 );
+
+export const settings = sqliteTable("workspace_settings", {
+  id: text("id").primaryKey(),
+  version: integer("version").notNull().default(0),
+  data: text("data", { mode: "json" }).notNull(),
+  writeToken: text("write_token"),
+});
+export const ruleVersions = sqliteTable(
+  "priority_rule_versions",
+  {
+    id: text("id").primaryKey(),
+    tripId: text("trip_id")
+      .notNull()
+      .references(() => trips.id),
+    version: integer("version").notNull(),
+    rules: text("rules", { mode: "json" }).notNull(),
+    reviewedBy: text("reviewed_by")
+      .notNull()
+      .references(() => users.id),
+    reviewedAt: text("reviewed_at").notNull(),
+  },
+  (t) => [uniqueIndex("rule_trip_version").on(t.tripId, t.version)],
+);
+export const rulePreviews = sqliteTable("rule_previews", {
+  id: text("id").primaryKey(),
+  tripId: text("trip_id")
+    .notNull()
+    .references(() => trips.id),
+  actorId: text("actor_id")
+    .notNull()
+    .references(() => users.id),
+  tripVersion: integer("trip_version").notNull(),
+  snapshot: text("snapshot").notNull(),
+  data: text("data", { mode: "json" }).notNull(),
+  expiresAt: text("expires_at").notNull(),
+});
+export const scheduledActions = sqliteTable(
+  "scheduled_actions",
+  {
+    id: text("id").primaryKey(),
+    kind: text("kind").notNull(),
+    enquiryId: text("enquiry_id").references(() => enquiries.id),
+    taskId: text("task_id").references(() => tasks.id),
+    dueAt: text("due_at").notNull(),
+    expectedDue: text("expected_due"),
+    status: text("status").notNull().default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    dispatchAttempts: integer("dispatch_attempts").notNull().default(0),
+    nextRetryAt: text("next_retry_at").notNull(),
+    leaseUntil: text("lease_until"),
+    token: text("token"),
+    lastError: text("last_error"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [
+    index("jobs_due_status_retry").on(t.status, t.dueAt, t.nextRetryAt),
+    index("jobs_task").on(t.taskId),
+    check(
+      "job_status_check",
+      sql`${t.status} IN ('pending','queued','processing','succeeded','failed','cancelled','held')`,
+    ),
+    check("job_kind_check", sql`${t.kind} IN ('task_due','backup')`),
+  ],
+);
+export const jobAttempts = sqliteTable(
+  "job_attempts",
+  {
+    id: text("id").primaryKey(),
+    jobId: text("job_id")
+      .notNull()
+      .references(() => scheduledActions.id),
+    phase: text("phase").notNull(),
+    at: text("at").notNull(),
+    outcome: text("outcome").notNull(),
+    error: text("error"),
+  },
+  (t) => [index("job_attempt_history").on(t.jobId, t.at)],
+);
+export const notifications = sqliteTable(
+  "in_app_notifications",
+  {
+    id: text("id").primaryKey(),
+    jobId: text("job_id")
+      .notNull()
+      .unique()
+      .references(() => scheduledActions.id),
+    enquiryId: text("enquiry_id")
+      .notNull()
+      .references(() => enquiries.id),
+    taskId: text("task_id")
+      .notNull()
+      .references(() => tasks.id),
+    ownerId: text("owner_id")
+      .notNull()
+      .references(() => users.id),
+    createdAt: text("created_at").notNull(),
+    readAt: text("read_at"),
+  },
+  (t) => [index("notification_owner_unread").on(t.ownerId, t.readAt)],
+);
+export const backupRuns = sqliteTable("backup_runs", {
+  id: text("id").primaryKey(),
+  status: text("status").notNull(),
+  createdAt: text("created_at").notNull(),
+  completedAt: text("completed_at"),
+  objectKey: text("object_key"),
+  checksum: text("checksum"),
+  counts: text("counts"),
+  cursor: integer("cursor").notNull().default(0),
+  receiptManifest: text("receipt_manifest").notNull().default("[]"),
+  lastError: text("last_error"),
+});
+export const tripContentVersions = sqliteTable(
+  "trip_content_versions",
+  {
+    id: text("id").primaryKey(),
+    tripId: text("trip_id")
+      .notNull()
+      .references(() => trips.id),
+    version: integer("version").notNull(),
+    content: text("content", { mode: "json" }).notNull(),
+    publishedBy: text("published_by")
+      .notNull()
+      .references(() => users.id),
+    publishedAt: text("published_at").notNull(),
+  },
+  (t) => [uniqueIndex("content_trip_version").on(t.tripId, t.version)],
+);
+export const serviceStatus = sqliteTable("service_status", {
+  id: text("id").primaryKey(),
+  lastStarted: text("last_started"),
+  lastSuccess: text("last_success"),
+  lastError: text("last_error"),
+});
+export const storageReview = sqliteTable("storage_review", {
+  id: text("id").primaryKey(),
+  createdAt: text("created_at").notNull(),
+  data: text("data", { mode: "json" }).notNull(),
+});

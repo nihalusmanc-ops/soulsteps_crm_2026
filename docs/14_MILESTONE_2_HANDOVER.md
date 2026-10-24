@@ -1,5 +1,7 @@
 # Milestone 2 — persistence and secure access
 
+> This is the M2 checkpoint record. M3 is now implemented; follow [the current setup and handover](15_MILESTONE_3_HANDOVER.md) for background jobs, manager settings, reviewed rules and backup/restore.
+
 Implemented locally on 24 October 2026. The interface now uses the Hono API, local D1 and private local R2. All current records/terms remain fictional. No deployment or live integration has been activated.
 
 ## Start

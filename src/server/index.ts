@@ -1,3 +1,6 @@
+import { managementRoutes } from "./management";
+import { sweep, consume, type JobMessage } from "../jobs/service";
+import type { Bindings } from "./types";
 import { Hono } from "hono";
 import { setCookie } from "hono/cookie";
 import { bodyLimit } from "hono/body-limit";
@@ -14,7 +17,7 @@ import type { AppEnv } from "./types";
 import { createSchema, mutationSchema, tripSchema } from "../shared/api";
 import { filesRoutes } from "./files";
 import { digest, requestKey } from "./request";
-const app = new Hono<AppEnv>();
+export const app = new Hono<AppEnv>();
 app.use("/api/*", async (c, next) => {
   c.set("requestId", crypto.randomUUID());
   c.header("Cache-Control", "no-store");
@@ -65,7 +68,7 @@ app.onError((error, c) => {
 app.get("/api/health", (c) =>
   c.json({
     status: "ok",
-    milestone: 2,
+    milestone: 3,
     mode: localFixtureAllowed(c.req.url, c.env) ? "local-demo" : "staff",
     persistence: "D1",
     outboundMessaging: false,
@@ -187,6 +190,7 @@ app.get("/api/reports", async (c) => {
   return c.json(await repo(c).state());
 });
 app.route("/api", filesRoutes);
+app.route("/api", managementRoutes);
 app.all("/api/*", (c) =>
   c.json(
     {
@@ -197,4 +201,14 @@ app.all("/api/*", (c) =>
     404,
   ),
 );
-export default app;
+export default {
+  fetch: app.fetch,
+  scheduled: async (
+    _event: ScheduledController,
+    env: Bindings,
+    ctx: ExecutionContext,
+  ) => {
+    ctx.waitUntil(sweep(env));
+  },
+  queue: consume,
+} satisfies ExportedHandler<Bindings, JobMessage>;

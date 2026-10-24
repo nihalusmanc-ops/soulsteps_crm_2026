@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { rulesSchema } from "./management";
 import { commandSchema } from "./domain";
 
 export type Identity = {
@@ -41,6 +42,10 @@ export const tripSchema = z
     deposit: z.number().int().positive().max(100000000).nullable(),
     version: z.number().int().positive(),
     groupVisaPolicy: z.enum(["review", "P3", "P6"]),
+    activeRuleVersion: z.number().int().positive().optional(),
+    activeRules: rulesSchema.optional(),
+    activeContentVersion: z.number().int().positive().optional(),
+    publishedAt: z.string().optional(),
   })
   .strict()
   .refine(
