@@ -3,6 +3,10 @@ Version 1.0 · 23 October 2026 · Project timezone: Asia/Dubai
 
 This is a specification and implementation handover, not a working application. It consolidates the decisions in the Soulsteps planning conversation. No WhatsApp provider, AI model, production credentials, actual Norway prices, or itinerary is supplied.
 
+## Current application
+
+Milestone 2 is implemented locally: persistent D1 data, Hono API permissions and private R2 receipts. Run `npm ci` then `npm run dev` from this folder and open http://127.0.0.1:5173. Keep the server running. Follow [the current setup and handover](docs/14_MILESTONE_2_HANDOVER.md). The specification and original instructions below remain the project contract.
+
 ## Start in VS Code
 1. Extract this ZIP into your `soulsteps-crm` folder. Open that folder in VS Code.
 2. Open the official OpenAI Codex extension and sign in.

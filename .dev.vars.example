@@ -1,0 +1,5 @@
+﻿# Copy to .dev.vars only for a local rehearsal of production authentication.
+# Never use VITE_ for server settings. No real values are included here.
+ACCESS_TEAM_DOMAIN=your-team.cloudflareaccess.com
+ACCESS_AUDIENCE=your-application-audience
+PUBLIC_APP_URL=https://crm.example.invalid

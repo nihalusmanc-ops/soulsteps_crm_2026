@@ -1,28 +1,120 @@
-import sample from '../../../samples/demo_enquiries.json';
-import { applyCommand, classify, type Command, type Enquiry, type State, type Trip } from '../../shared/domain';
-const key = 'soulsteps-demo-v1';
-export function seed(): State {
- const now = Date.now(); const at = (hours: number) => new Date(now + hours * 3600000).toISOString();
- const enquiries: Enquiry[] = sample.records.map((r, i) => {
- const fit = classify(r.group_type as Enquiry['group'], r.visa_summary as Enquiry['visa']);
- const e: Enquiry = { id: r.id, customerId: `CUSTOMER-${i+1}`, name: r.customer_name, email: r.email, phone: null, tripId: r.trip_id, stage: r.stage as Enquiry['stage'], temperature: r.temperature as Enquiry['temperature'], group: r.group_type as Enquiry['group'], visa: r.visa_summary as Enquiry['visa'], travellers: r.group_type === 'couple' ? 2 : r.group_type === 'solo' ? 1 : null, rank: fit.rank, rankReason: fit.reason, response: r.response_flag, owner: 'Demo staff', source: i % 2 ? 'Instagram' : 'Facebook', createdAt: at(-24*(i+1)), lastContact: i ? at(-i*12) : undefined, originalNote: r.note, originalGroup: r.group_type, availability: 'pending', tasks: [], activities: [{ id: `seed-${i}`, type: 'source', text: 'Fictional sample enquiry added. Original source note preserved.', actor: 'Demo seed', at: at(-24*(i+1)) }], payments: [], revision: 0 };
- if ([1,2,3,5,7].includes(i)) e.tasks.push({ id: `task-${i}`, type: i === 5 ? 'Callback' : 'Follow-up', due: at(i === 5 ? -3 : i === 1 ? -1 : i === 2 ? 1 : i === 3 ? 2 : 4), status: 'pending', note: i === 5 ? 'Customer asked to discuss travel plans.' : 'Discuss next steps and qualification.' });
- if (i === 6) e.requestedCallback = 'Weekend, time not yet agreed';
- if (i === 9) e.holdReason = 'Fictional scenario: future travel, no date agreed.';
- if (i === 10) e.holdReason = 'Fictional scenario: chose not to travel.';
- if (r.payment_scenario !== 'none') { e.quote = { id: `quote-${i}`, total: 1200000, deposit: 300000, currency: 'AED', accepted: true, terms: 'FICTIONAL demo terms only: AED 12,000 total; AED 3,000 deposit. Not a Norway price.', issuedAt: at(-48) }; e.payments = [{ id: `payment-${i}`, amount: i === 4 ? 100000 : 300000, currency: 'AED', date: at(-24), reference: `FICTIONAL-${i}`, status: 'verified', verifier: 'Demo seed', verifiedAt: at(-23) }]; e.activities.unshift({ id: `funds-${i}`, type: 'payment', text: 'Fictional accepted quote and verified payment seeded for workflow testing.', actor: 'Demo seed', at: at(-23) }); }
- if (i === 8) e.booking = { reference: 'SS-DEMO-09', confirmedAt: at(-20), actor: 'Demo staff' };
- return e;
- });
- return { version: 1, enquiries, trips: [{ id: 'DEMO-NORWAY', name: 'Norway · A northern escape', destination: 'Norway', status: 'draft', type: 'fixed', description: 'A dedicated workspace for the upcoming Norway journey. Qualify travellers and coordinate the next step while approved trip content is prepared.', departure: '', availabilityNote: 'Check availability manually before making a commitment.', itinerary: '', price: null, deposit: null, version: 1, groupVisaPolicy: 'review' }] };
+import {
+  applyCommand,
+  type Command,
+  type State,
+  type Trip,
+} from "../../shared/domain";
+import { seed } from "../../shared/seed";
+export { seed } from "../../shared/seed";
+const key = "soulsteps-demo-v1";
+export interface CrmRepository {
+  read(): Promise<State>;
+  command(id: string, revision: number, command: Command): Promise<void>;
+  saveTrip(trip: Trip): Promise<void>;
+  create(name: string, tripId: string, customerId?: string): Promise<string>;
+  reset(): Promise<void>;
 }
-export interface CrmRepository { read(): Promise<State>; command(id: string, revision: number, command: Command): Promise<void>; saveTrip(trip: Trip): Promise<void>; create(name: string, tripId: string): Promise<string>; reset(): Promise<void> }
-function readLocal(): State { const value = localStorage.getItem(key); if (!value) return seed(); try { const parsed = JSON.parse(value) as State; if (parsed.version !== 1 || !Array.isArray(parsed.enquiries) || !Array.isArray(parsed.trips)) throw new Error(); return parsed; } catch { throw new Error('Demo storage cannot be read. Export or clear the soulsteps-demo-v1 browser storage key to start again.'); } }
-function write(state: State) { localStorage.setItem(key, JSON.stringify(state)); }
+function readLocal(): State {
+  const value = localStorage.getItem(key);
+  if (!value) return seed();
+  try {
+    const parsed = JSON.parse(value) as State;
+    if (
+      parsed.version !== 1 ||
+      !Array.isArray(parsed.enquiries) ||
+      !Array.isArray(parsed.trips)
+    )
+      throw new Error();
+    return parsed;
+  } catch {
+    throw new Error(
+      "Demo storage cannot be read. Export or clear the soulsteps-demo-v1 browser storage key to start again.",
+    );
+  }
+}
+function write(state: State) {
+  localStorage.setItem(key, JSON.stringify(state));
+}
 export const demoRepository: CrmRepository = {
- async read() { const s = readLocal(); if (!localStorage.getItem(key)) write(s); return structuredClone(s); },
- async command(id, revision, command) { const s = readLocal(); const index = s.enquiries.findIndex(e => e.id === id); if (index < 0) throw new Error('Enquiry not found.'); if (s.enquiries[index].revision !== revision) throw new Error('This enquiry changed in another tab. Refresh and try again.'); s.enquiries[index] = applyCommand(s.enquiries[index], command, s.trips.find(t => t.id === s.enquiries[index].tripId)?.groupVisaPolicy); write(s); },
- async saveTrip(trip) { const s = readLocal(); const index = s.trips.findIndex(t => t.id === trip.id); if (index < 0) throw new Error('Trip not found.'); if (s.trips[index].version !== trip.version) throw new Error('Trip changed. Refresh before saving.'); if (!trip.name.trim()) throw new Error('Trip name is required.'); if ((trip.price !== null && (!Number.isSafeInteger(trip.price) || trip.price <= 0)) || (trip.deposit !== null && (!Number.isSafeInteger(trip.deposit) || trip.deposit <= 0))) throw new Error('Enter valid positive amounts or leave blank.'); s.trips[index] = { ...trip, status: 'draft', version: trip.version + 1 }; write(s); },
- async create(name, tripId) { if (!name.trim()) throw new Error('Name is required.'); const s = readLocal(); const id = `DEMO-${crypto.randomUUID().slice(0,8)}`; s.enquiries.unshift({ id, customerId: crypto.randomUUID(), name: name.trim(), email: '', phone: null, tripId, stage: 'NEW', temperature: 'unassessed', group: 'unknown', visa: 'unknown', travellers: null, rank: null, rankReason: 'Needs qualification: collect group and visa details.', response: 'none', owner: 'Demo staff', source: 'Manual', createdAt: new Date().toISOString(), originalNote: 'Manually created fictional demo enquiry.', originalGroup: 'unknown', availability: 'pending', tasks: [], payments: [], activities: [{ id: crypto.randomUUID(), type: 'source', text: 'Fictional enquiry created manually.', at: new Date().toISOString(), actor: 'Demo staff' }], revision: 0 }); write(s); return id; },
- async reset() { write(seed()); },
+  async read() {
+    const s = readLocal();
+    if (!localStorage.getItem(key)) write(s);
+    return structuredClone(s);
+  },
+  async command(id, revision, command) {
+    const s = readLocal();
+    const index = s.enquiries.findIndex((e) => e.id === id);
+    if (index < 0) throw new Error("Enquiry not found.");
+    if (s.enquiries[index].revision !== revision)
+      throw new Error(
+        "This enquiry changed in another tab. Refresh and try again.",
+      );
+    s.enquiries[index] = applyCommand(
+      s.enquiries[index],
+      command,
+      s.trips.find((t) => t.id === s.enquiries[index].tripId)?.groupVisaPolicy,
+    );
+    write(s);
+  },
+  async saveTrip(trip) {
+    const s = readLocal();
+    const index = s.trips.findIndex((t) => t.id === trip.id);
+    if (index < 0) throw new Error("Trip not found.");
+    if (s.trips[index].version !== trip.version)
+      throw new Error("Trip changed. Refresh before saving.");
+    if (!trip.name.trim()) throw new Error("Trip name is required.");
+    if (
+      (trip.price !== null &&
+        (!Number.isSafeInteger(trip.price) || trip.price <= 0)) ||
+      (trip.deposit !== null &&
+        (!Number.isSafeInteger(trip.deposit) || trip.deposit <= 0))
+    )
+      throw new Error("Enter valid positive amounts or leave blank.");
+    s.trips[index] = { ...trip, status: "draft", version: trip.version + 1 };
+    write(s);
+  },
+  async create(name, tripId) {
+    if (!name.trim()) throw new Error("Name is required.");
+    const s = readLocal();
+    const id = `DEMO-${crypto.randomUUID().slice(0, 8)}`;
+    s.enquiries.unshift({
+      id,
+      customerId: crypto.randomUUID(),
+      name: name.trim(),
+      email: "",
+      phone: null,
+      tripId,
+      stage: "NEW",
+      temperature: "unassessed",
+      group: "unknown",
+      visa: "unknown",
+      travellers: null,
+      rank: null,
+      rankReason: "Needs qualification: collect group and visa details.",
+      response: "none",
+      owner: "Demo staff",
+      source: "Manual",
+      createdAt: new Date().toISOString(),
+      originalNote: "Manually created fictional demo enquiry.",
+      originalGroup: "unknown",
+      availability: "pending",
+      tasks: [],
+      payments: [],
+      activities: [
+        {
+          id: crypto.randomUUID(),
+          type: "source",
+          text: "Fictional enquiry created manually.",
+          at: new Date().toISOString(),
+          actor: "Demo staff",
+        },
+      ],
+      revision: 0,
+    });
+    write(s);
+    return id;
+  },
+  async reset() {
+    write(seed());
+  },
 };

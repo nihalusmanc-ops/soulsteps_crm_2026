@@ -20,3 +20,14 @@ Date: 23 October 2026. These entries are proposed implementation defaults, not a
 | Retention | No real records accepted for this checkpoint | Privacy, retention/export and authorised data lifecycle |
 
 Missing content and credentials do not block the independent M2–M4 engineering work. Production ranking and communications remain gated on the relevant decisions, not on guessed defaults.
+
+## Milestone 2 implementation — 24 October 2026
+
+- D1 through Hono replaces browser-local persistence. Missing fictional fixture IDs can be seeded locally without overwriting operational edits; one other-owner fixture exercises isolation.
+- Production access requires a signed Access JWT and active invited email/subject match. Local fixture identities require a separate compile-time configuration, loopback and local environment. Actual Access setup remains pending identities/configuration.
+- Repeat enquiries explicitly reuse accessible customer IDs, with separate activity and enquiry histories. Partial phone/email values never trigger a silent merge.
+- Atomic conditional D1 batches implement revision checks and idempotent command results; child records, audit and booking cannot commit when the parent revision update loses.
+- Receipts are private PDF/PNG/JPEG attachments up to 5 MB, not automatic verification evidence. Signature/extension checks are implemented; malware scanning and interrupted-upload orphan reconciliation remain later work.
+- Core entities have relational keys/indexes/constraints; extended qualification and terms use typed JSON in the relevant table. SQL-backed filtering/aggregation and richer multi-departure editing remain follow-on work.
+- Reversals and rank overrides retain reason, actor and time. Issued quotation correction/version UI is still follow-on work; existing snapshots are immutable.
+- Live release needs real Access/storage configuration, approved content/policies, restore verification and staging review. No deployment, external send, service purchase or production import occurred. See docs/14 for commands and verification.

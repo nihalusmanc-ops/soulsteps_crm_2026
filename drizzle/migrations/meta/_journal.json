@@ -8,6 +8,20 @@
       "when": 1792781268018,
       "tag": "0000_material_silver_fox",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1792831655854,
+      "tag": "0001_cool_korvac",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1792832529427,
+      "tag": "0002_integrity",
+      "breakpoints": true
     }
   ]
 }

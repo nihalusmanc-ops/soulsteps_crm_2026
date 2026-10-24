@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "soulsteps-crm-local",
+  "name": "soulsteps-crm",
   "main": "src/server/index.ts",
   "compatibility_date": "2026-10-01",
   "workers_dev": false,
@@ -13,15 +13,24 @@
     ]
   },
   "vars": {
-    "APP_ENV": "local",
+    "APP_ENV": "production",
     "BUSINESS_TIMEZONE": "Asia/Dubai"
   },
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "soulsteps-local",
+      "database_name": "soulsteps-production",
       "database_id": "00000000-0000-0000-0000-000000000000",
       "migrations_dir": "drizzle/migrations"
+    }
+  ],
+  "define": {
+    "__LOCAL_DEV__": "false"
+  },
+  "r2_buckets": [
+    {
+      "binding": "FILES_BUCKET",
+      "bucket_name": "soulsteps-private-receipts"
     }
   ]
 }

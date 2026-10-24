@@ -5,3 +5,6 @@ dist/
 .dev.vars
 playwright-report/
 test-results/
+
+.local-dev.log
+.local-worker.log
