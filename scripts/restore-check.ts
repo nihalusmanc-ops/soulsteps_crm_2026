@@ -82,6 +82,10 @@ if (
   snapshot.tables.import_batches = [];
   snapshot.tables.import_rows = [];
 }
+if (!("meta_forms" in snapshot.tables) && !("meta_leads" in snapshot.tables)) {
+  snapshot.tables.meta_forms = [];
+  snapshot.tables.meta_leads = [];
+}
 if (backupTables.some((table) => !Array.isArray(snapshot.tables[table])))
   throw new Error("Backup is missing required tables.");
 mkdirSync(".wrangler", { recursive: true });
@@ -138,7 +142,7 @@ for (const table of backupTables) {
       row.write_token = null;
     }
     if (
-      table === "scheduled_actions" &&
+      (table === "scheduled_actions" || table === "meta_leads") &&
       ["pending", "queued", "processing", "failed"].includes(String(row.status))
     ) {
       row.status = "held";
@@ -282,6 +286,31 @@ try {
     )
       throw new Error("Restored import source checksum mismatch.");
   }
+  for (const lead of snapshot.tables.meta_leads) {
+    const response = await fetch(
+      `http://127.0.0.1:8793/api/management/meta/leads/${lead.id}`,
+    );
+    if (!response.ok) throw new Error("Restored Meta source is unavailable.");
+    const restored = (await response.json()) as {
+      notification: unknown;
+      payload: unknown;
+      status: string;
+    };
+    if (
+      JSON.stringify(restored.notification) !==
+        JSON.stringify(JSON.parse(String(lead.notification))) ||
+      JSON.stringify(restored.payload) !==
+        JSON.stringify(lead.payload ? JSON.parse(String(lead.payload)) : null)
+    )
+      throw new Error("Restored Meta source differs from snapshot.");
+    if (
+      ["pending", "queued", "processing", "failed"].includes(
+        String(lead.status),
+      ) &&
+      restored.status !== "held"
+    )
+      throw new Error("Restored Meta job was not held.");
+  }
   const report = {
     status: "passed",
     sourceBackup: requested.id,
@@ -289,6 +318,7 @@ try {
     tables: verifiedCounts,
     receiptCopies: snapshot.receipts.length,
     importSources: snapshot.tables.import_batches.length,
+    metaSources: snapshot.tables.meta_leads.length,
     checksHeld: true,
     outboundEnabled: false,
     destination: directory,

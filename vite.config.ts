@@ -5,6 +5,10 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     proxy: {
+      "/webhooks": {
+        target: process.env.API_PROXY_TARGET || "http://127.0.0.1:8787",
+        changeOrigin: false,
+      },
       "/api": {
         target: process.env.API_PROXY_TARGET || "http://127.0.0.1:8787",
         changeOrigin: false,

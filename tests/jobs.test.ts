@@ -1,5 +1,19 @@
 import { reviewStorage } from "../src/jobs/storage";
 import { ImportService } from "../src/server/import-service";
+import {
+  acceptMetaEvent,
+  processMetaLead,
+  sweepMeta,
+  reconcileMetaForm,
+} from "../src/server/meta-service";
+import {
+  syntheticPage,
+  syntheticForm,
+  syntheticLead,
+  type MetaMapping,
+} from "../src/shared/meta";
+import { app } from "../src/server/index";
+import { createHmac } from "node:crypto";
 import importFixture from "../public/samples/import-preview.json";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { Miniflare, convertV4MiniflareOptions } from "miniflare";
@@ -85,6 +99,353 @@ beforeEach(async () => {
 }, 30000);
 afterEach(async () => {
   await runtime?.dispose();
+});
+
+describe("Meta durable lead intake", () => {
+  const id = "990000000000123";
+  const event = (leadId = id, formId = syntheticForm) => ({
+    object: "page",
+    entry: [
+      {
+        id: syntheticPage,
+        changes: [
+          {
+            field: "leadgen",
+            value: {
+              leadgen_id: leadId,
+              page_id: syntheticPage,
+              form_id: formId,
+              created_time: 1792836000,
+              ad_id: "990000000000003",
+            },
+          },
+        ],
+      },
+    ],
+  });
+  const mapping = (): MetaMapping => ({
+    pageId: syntheticPage,
+    formId: syntheticForm,
+    version: 1,
+    schemaVersion: "v3",
+    tripId: seed().trips[0].id,
+    ownerId: "staff",
+    enabled: true,
+    reviewed: true,
+    reason: "Reviewed fictional form mapping",
+    fields: {
+      name: "full_name",
+      phone: "phone_number",
+      email: "email",
+      group: "group",
+      visa: "visa",
+      decisionTimeframe: "booking_timeframe",
+      travelSelection: "travel_selection",
+    },
+  });
+  async function mapped() {
+    const m = mapping();
+    await env.DB.prepare(
+      "INSERT INTO meta_forms(id,page_id,form_id,version,data) VALUES(?,?,?,1,?)",
+    )
+      .bind(
+        `${syntheticPage}:${syntheticForm}`,
+        syntheticPage,
+        syntheticForm,
+        JSON.stringify(m),
+      )
+      .run();
+    return m;
+  }
+  const row = () =>
+    env.DB.prepare("SELECT * FROM meta_leads WHERE id=?").bind(id).first<{
+      status: string;
+      attempts: number;
+      enquiry_id: string | null;
+      payload: string | null;
+      last_error: string | null;
+    }>();
+  const due = () =>
+    env.DB.prepare(
+      "UPDATE meta_leads SET next_retry_at='2000-01-01T00:00:00.000Z' WHERE id=?",
+    )
+      .bind(id)
+      .run();
+  function live() {
+    Object.assign(env, {
+      APP_ENV: "production",
+      META_LIVE_INTAKE_ENABLED: "true",
+      META_APP_SECRET: "fictional-app-secret-never-production",
+      META_VERIFY_TOKEN: "fictional-verify-token",
+      META_PAGE_ID: syntheticPage,
+      META_PAGE_ACCESS_TOKEN: "fictional-page-token",
+      META_GRAPH_VERSION: "v25.0",
+    });
+  }
+  it("verifies raw signatures before writes and exposes only the exact public webhook", async () => {
+    const body = JSON.stringify(event());
+    expect(
+      (
+        await app.request(
+          "http://localhost/webhooks/meta/leads",
+          { method: "POST", body },
+          env,
+        )
+      ).status,
+    ).toBe(503);
+    live();
+    expect(
+      (
+        await app.request(
+          "http://localhost/webhooks/meta/leads?hub.mode=subscribe&hub.verify_token=fictional-verify-token&hub.challenge=123",
+          {},
+          env,
+        )
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await app.request(
+          "http://localhost/webhooks/meta/leads?hub.mode=subscribe&hub.verify_token=wrong&hub.challenge=123",
+          {},
+          env,
+        )
+      ).status,
+    ).toBe(403);
+    const signature =
+      "sha256=" +
+      createHmac("sha256", env.META_APP_SECRET!).update(body).digest("hex");
+    expect(
+      (
+        await app.request(
+          "http://localhost/webhooks/meta/leads",
+          {
+            method: "POST",
+            headers: { "X-Hub-Signature-256": signature },
+            body: body + " ",
+          },
+          env,
+        )
+      ).status,
+    ).toBe(403);
+    expect(await row()).toBeNull();
+    const response = await app.request(
+      "http://localhost/webhooks/meta/leads",
+      { method: "POST", headers: { "X-Hub-Signature-256": signature }, body },
+      env,
+    );
+    expect(response.status).toBe(200);
+    expect(((await response.json()) as { accepted: number }).accepted).toBe(1);
+    const repeat = await app.request(
+      "http://localhost/webhooks/meta/leads",
+      { method: "POST", headers: { "X-Hub-Signature-256": signature }, body },
+      env,
+    );
+    expect(((await repeat.json()) as { accepted: number }).accepted).toBe(0);
+    expect((await row())?.status).toBe("pending");
+    expect((await repo.state()).enquiries).toHaveLength(1);
+    expect(
+      (await app.request("http://localhost/webhooks/meta/unexpected", {}, env))
+        .status,
+    ).toBe(404);
+  });
+  it("deduplicates webhook, queue retries and historical connector imports with source provenance", async () => {
+    await mapped();
+    await acceptMetaEvent(env, event(), "synthetic");
+    await acceptMetaEvent(env, event(), "synthetic");
+    expect((await sweepMeta(env)).dispatched).toBe(1);
+    expect(ids).toContain(`meta:${id}`);
+    await Promise.all([processMetaLead(env, id), processMetaLead(env, id)]);
+    const result = await row();
+    expect(result?.status).toBe("completed");
+    const e = await repo.enquiry(result!.enquiry_id!);
+    expect(e).toMatchObject({
+      source: "Meta lead ad",
+      rank: null,
+      temperature: "unassessed",
+      phone: null,
+      stage: "NEW",
+    });
+    expect(e.tasks).toEqual([]);
+    expect(e.payments).toEqual([]);
+    expect(e.booking).toBeUndefined();
+    expect(JSON.parse(result!.payload!).campaign_id).toBe("990000000000005");
+    expect(e.originalNote).toContain("booking_timeframe: Considering later");
+    expect(e.originalNote).toContain("travel_selection: Not selected");
+    expect(e.activities[0].actor).toBe("Meta lead ad");
+    const fixture = structuredClone(importFixture);
+    fixture.rows[0].cells[0] = id;
+    const svc = new ImportService(env, {
+      id: "manager",
+      name: "Manager",
+      role: "manager",
+      local: true,
+    });
+    let batch = await svc.upload(JSON.stringify(fixture));
+    batch = await svc.review(batch.id, batch.rows[0].id, {
+      revision: 0,
+      tripId: seed().trips[0].id,
+      ownerId: "staff",
+      acknowledged: true,
+      verifiedPhone: false,
+      reason: "Reviewed historical connector duplicate",
+    });
+    batch = await svc.commit(batch.id, [batch.rows[0].id]);
+    expect(batch.rows[0].status).toBe("skip");
+    expect(batch.rows[0].enquiry_id).toBe(e.id);
+    expect((await repo.state()).enquiries).toHaveLength(2);
+  });
+  it("retains a complete submitted phone for manual staff use without silently matching or verifying ownership", async () => {
+    await mapped();
+    await acceptMetaEvent(env, event(), "synthetic");
+    const lead = syntheticLead(id);
+    lead.field_data.find((f) => f.name === "phone_number")!.values = [
+      "+12025550123",
+    ];
+    const existing = await repo.enquiry(enquiryId);
+    await env.DB.prepare(
+      "UPDATE customers SET phone_e164='+12025550123',contact_validity='verified' WHERE id=?",
+    )
+      .bind(existing.customerId)
+      .run();
+    await env.DB.prepare("UPDATE meta_leads SET payload=? WHERE id=?")
+      .bind(JSON.stringify(lead), id)
+      .run();
+    await processMetaLead(env, id);
+    const result = await row(),
+      e = await repo.enquiry(result!.enquiry_id!);
+    expect(e.phone).toBe("+12025550123");
+    expect(e.customerId).not.toBe(existing.customerId);
+    expect(
+      (await env.DB.prepare("SELECT contact_validity FROM customers WHERE id=?")
+        .bind(e.customerId)
+        .first<{ contact_validity: string }>())!.contact_validity,
+    ).toBe("submitted");
+    expect(e.activities[0].text).toContain("no messaging consent inferred");
+  });
+  it("preserves unknown-form payload and reprocesses it after reviewed mapping", async () => {
+    await acceptMetaEvent(env, event(), "synthetic");
+    await processMetaLead(env, id);
+    expect((await row())?.status).toBe("review");
+    expect((await row())?.payload).toBeTruthy();
+    await mapped();
+    await env.DB.prepare(
+      "UPDATE meta_leads SET status='pending',attempts=0 WHERE id=?",
+    )
+      .bind(id)
+      .run();
+    await processMetaLead(env, id);
+    expect((await row())?.status).toBe("completed");
+    expect((await repo.state()).enquiries).toHaveLength(2);
+  });
+  it("backs off transient failures and succeeds once without duplicate effects", async () => {
+    await mapped();
+    await acceptMetaEvent(env, event(), "synthetic", "retry");
+    await processMetaLead(env, id);
+    expect(await row()).toMatchObject({ status: "pending", attempts: 1 });
+    await processMetaLead(env, id);
+    expect((await row())?.attempts).toBe(1);
+    await due();
+    await processMetaLead(env, id);
+    expect(await row()).toMatchObject({ status: "completed", attempts: 2 });
+  });
+  it("bounds provider failures, pins Graph URLs and keeps tokens out of query strings", async () => {
+    live();
+    await mapped();
+    await acceptMetaEvent(env, event());
+    let calls = 0;
+    const failing = (async (
+      input: RequestInfo | URL,
+      options?: RequestInit,
+    ) => {
+      calls++;
+      const url = new URL(String(input));
+      expect(url.origin).toBe("https://graph.facebook.com");
+      expect(url.search).not.toContain("token");
+      expect(options?.headers).toEqual({
+        Authorization: "Bearer fictional-page-token",
+      });
+      return new Response("private error must not be stored", { status: 429 });
+    }) as typeof fetch;
+    for (let i = 0; i < 6; i++) {
+      await due();
+      await processMetaLead(env, id, failing);
+    }
+    expect(calls).toBe(5);
+    expect((await row())?.status).toBe("failed");
+    expect((await row())?.last_error).not.toContain("private");
+  });
+  it("recovers queue handoff and expired leases while honouring pause", async () => {
+    await mapped();
+    await acceptMetaEvent(env, event(), "synthetic");
+    const queue = env.JOBS_QUEUE;
+    env.JOBS_QUEUE = {
+      send: async () => {
+        throw new Error("fixture queue failure");
+      },
+    } as unknown as Bindings["JOBS_QUEUE"];
+    await sweepMeta(env);
+    expect(await row()).toMatchObject({ status: "pending", attempts: 1 });
+    env.JOBS_QUEUE = queue;
+    await due();
+    await sweepMeta(env);
+    await env.DB.prepare(
+      "UPDATE meta_leads SET lease_until='2000-01-01T00:00:00.000Z' WHERE id=?",
+    )
+      .bind(id)
+      .run();
+    await sweepMeta(env);
+    expect((await row())?.status).toBe("queued");
+    await env.DB.prepare(
+      "UPDATE workspace_settings SET data=json_set(data,'$.jobsPaused',json('true'))",
+    ).run();
+    expect((await sweepMeta(env)).paused).toBe(true);
+    await processMetaLead(env, id);
+    expect((await repo.state()).enquiries).toHaveLength(1);
+    await env.DB.prepare(
+      "UPDATE workspace_settings SET data=json_set(data,'$.jobsPaused',json('false'))",
+    ).run();
+    await processMetaLead(env, id);
+    expect((await row())?.status).toBe("completed");
+  });
+  it("quarantines mismatched provider identity and preserves its response", async () => {
+    live();
+    await mapped();
+    await acceptMetaEvent(env, event());
+    await processMetaLead(env, id, (async () =>
+      Response.json(syntheticLead("990000000000999"))) as typeof fetch);
+    expect((await row())?.status).toBe("review");
+    expect((await row())?.payload).toContain("990000000000999");
+    expect((await repo.state()).enquiries).toHaveLength(1);
+  });
+  it("reconciles bounded form pages using cursors without following provider next URLs", async () => {
+    live();
+    const map = await mapped();
+    let calls = 0;
+    const result = await reconcileMetaForm(env, map, "safe-cursor", (async (
+      input: RequestInfo | URL,
+    ) => {
+      calls++;
+      const url = new URL(String(input));
+      expect(url.origin).toBe("https://graph.facebook.com");
+      expect(url.pathname).toBe(`/v25.0/${syntheticForm}/leads`);
+      expect(url.searchParams.get("after")).toBe("safe-cursor");
+      return Response.json({
+        data: [{ id }],
+        paging: {
+          cursors: { after: "next-cursor" },
+          next: "https://evil.invalid/never-follow",
+        },
+      });
+    }) as typeof fetch);
+    expect(calls).toBe(1);
+    expect(result).toMatchObject({
+      accepted: 1,
+      scanned: 1,
+      nextCursor: "next-cursor",
+    });
+    expect((await row())?.status).toBe("pending");
+  });
 });
 
 describe("persistent historical imports", () => {

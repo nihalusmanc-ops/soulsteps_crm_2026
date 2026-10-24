@@ -1,5 +1,6 @@
 import { managementRoutes } from "./management";
 import { importRoutes } from "./imports";
+import { metaPublic, metaRoutes } from "./meta";
 import { sweep, consume, type JobMessage } from "../jobs/service";
 import type { Bindings } from "./types";
 import { Hono } from "hono";
@@ -69,12 +70,13 @@ app.onError((error, c) => {
 app.get("/api/health", (c) =>
   c.json({
     status: "ok",
-    milestone: 3,
+    milestone: 5,
     mode: localFixtureAllowed(c.req.url, c.env) ? "local-demo" : "staff",
     persistence: "D1",
     outboundMessaging: false,
   }),
 );
+app.route("/webhooks/meta", metaPublic);
 app.use(
   "/api/*",
   sameOrigin,
@@ -193,6 +195,7 @@ app.get("/api/reports", async (c) => {
 app.route("/api", filesRoutes);
 app.route("/api", managementRoutes);
 app.route("/api", importRoutes);
+app.route("/api", metaRoutes);
 app.all("/api/*", (c) =>
   c.json(
     {

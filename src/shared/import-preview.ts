@@ -7,6 +7,7 @@ export const importDocumentSchema = z
     format: z.literal("soulsteps-import-v1"),
     sheet: z.string().min(1).max(100),
     mappingVersion: z.string().min(1).max(100).optional(),
+    providerData: z.record(z.string(), z.unknown()).optional(),
     evidence: z
       .object({
         sourceChecksum: z.string().regex(/^[a-f0-9]{64}$/),

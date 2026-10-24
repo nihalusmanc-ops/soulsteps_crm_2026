@@ -26,6 +26,11 @@ export class ImportService {
   constructor(
     readonly env: Bindings,
     readonly actor: Identity,
+    readonly source: {
+      provider: string;
+      retainSubmittedPhone?: boolean;
+      guard?: { sql: string; values: (string | number | null)[] };
+    } = { provider: "Historical import" },
   ) {}
   async batch(id: string): Promise<ImportBatch> {
     const batch = await this.env.DB.prepare(
@@ -207,10 +212,12 @@ export class ImportService {
     const db = this.env.DB,
       r = row.data,
       review = row.review!;
-    const externalKey = `historical:${r.sourceId}`;
+    const externalKey = `lead:${r.sourceId}`;
     const existing = await db
-      .prepare("SELECT enquiry_id FROM enquiry_sources WHERE external_key=?")
-      .bind(externalKey)
+      .prepare(
+        "SELECT enquiry_id FROM enquiry_sources WHERE external_key IN (?,?,?)",
+      )
+      .bind(externalKey, `historical:${r.sourceId}`, `meta:${r.sourceId}`)
       .first<{ enquiry_id: string }>();
     if (existing) {
       await db
@@ -222,6 +229,8 @@ export class ImportService {
       return;
     }
     const phone = review.verifiedPhone ? r.phone : null;
+    const submittedPhone =
+      phone || (this.source.retainSubmittedPhone ? r.phone : null);
     const matches = phone
       ? (
           await db
@@ -259,7 +268,7 @@ export class ImportService {
       customerId,
       name: r.name,
       email,
-      phone,
+      phone: submittedPhone,
       tripId: review.tripId,
       ownerId: review.ownerId,
       owner: "",
@@ -272,7 +281,7 @@ export class ImportService {
       rankReason:
         "Needs qualification: imported answers require staff assessment.",
       response: "none",
-      source: "Historical import",
+      source: this.source.provider,
       createdAt: now,
       originalNote: r.notes.join("\n"),
       originalGroup: r.group,
@@ -287,14 +296,14 @@ export class ImportService {
     const activity = {
       id: crypto.randomUUID(),
       type: "source",
-      actor: "Historical import",
+      actor: this.source.provider,
       at: now,
-      text: `Imported source ${r.sourceId}. Received ${now}; source date (uninterpreted): ${r.raw.cells[1] || "missing"}. Original notes: ${e.originalNote || "none"}. No historical calls or booking inferred.`,
+      text: `Imported source ${r.sourceId}. Received ${now}; source date (uninterpreted): ${r.raw.cells[1] || "missing"}. Original notes: ${e.originalNote || "none"}. No historical calls or booking inferred.${this.source.retainSubmittedPhone ? " Form contact is submitted, not independently verified; no messaging consent inferred." : ""}`,
     };
     const statements = [
       db
         .prepare(
-          "UPDATE import_rows SET token=? WHERE id=? AND revision=? AND status='ready' AND EXISTS(SELECT 1 FROM users WHERE id=? AND active=1 AND role='staff') AND NOT EXISTS(SELECT 1 FROM enquiry_sources WHERE external_key=?) AND (SELECT COUNT(*) FROM customers WHERE phone_e164=? AND contact_validity='verified')=? AND (? IS NULL OR EXISTS(SELECT 1 FROM customers WHERE id=? AND name=? AND email IS ? AND phone_e164=? AND contact_validity='verified'))",
+          `UPDATE import_rows SET token=? WHERE id=? AND revision=? AND status='ready' AND EXISTS(SELECT 1 FROM users WHERE id=? AND active=1 AND role='staff') AND NOT EXISTS(SELECT 1 FROM enquiry_sources WHERE external_key IN (?,?,?)) AND (SELECT COUNT(*) FROM customers WHERE phone_e164=? AND contact_validity='verified')=? AND (? IS NULL OR EXISTS(SELECT 1 FROM customers WHERE id=? AND name=? AND email IS ? AND phone_e164=? AND contact_validity='verified')) AND (${this.source.guard?.sql || "1=1"})`,
         )
         .bind(
           token,
@@ -302,6 +311,8 @@ export class ImportService {
           row.revision,
           review.ownerId,
           externalKey,
+          `historical:${r.sourceId}`,
+          `meta:${r.sourceId}`,
           phone,
           matches.length,
           matches[0]?.id || null,
@@ -309,6 +320,7 @@ export class ImportService {
           matches[0]?.name || null,
           matches[0]?.email || null,
           phone,
+          ...(this.source.guard?.values || []),
         ),
     ];
     if (!matches.length)
@@ -321,8 +333,8 @@ export class ImportService {
             customerId,
             r.name,
             email || null,
-            phone,
-            phone ? "verified" : "unknown",
+            submittedPhone,
+            phone ? "verified" : submittedPhone ? "submitted" : "unknown",
             now,
             row.id,
             token,
@@ -346,11 +358,12 @@ export class ImportService {
         ),
       db
         .prepare(
-          `INSERT INTO enquiry_sources(id,enquiry_id,provider,external_key,original_note,raw_data) SELECT ?,?,'Historical import',?,?,? WHERE ${gate}`,
+          `INSERT INTO enquiry_sources(id,enquiry_id,provider,external_key,original_note,raw_data) SELECT ?,?,?,?,?,? WHERE ${gate}`,
         )
         .bind(
           crypto.randomUUID(),
           enquiryId,
+          this.source.provider,
           externalKey,
           e.originalNote,
           JSON.stringify({ batchId, row: r, review }),

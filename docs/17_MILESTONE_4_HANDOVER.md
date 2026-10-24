@@ -30,7 +30,7 @@ The tool refuses macros/DTD/entity declarations, bounds ZIP expansion, and does 
 
 ## Data and concurrency defaults
 
-- External source key `historical:<lead ID>` is unique across import batches. An existing key skips the new row and links to the preserved enquiry. Changed legacy notes remain in the new batch; they do not silently overwrite or append to staff history. Update count is explicitly zero.
+- Since M5, canonical external source key `lead:<lead ID>` is shared by historical and Meta intake; existing `historical:` keys remain recognised. An existing key skips the new row and links to the preserved enquiry. Changed legacy notes remain in the new batch; they do not silently overwrite or append to staff history. Update count is explicitly zero.
 - Different external IDs create separate enquiries. Full E.164-shaped phones match only when the importing manager attests independent verification and the existing customer is marked verified. Name and available email evidence must agree. Multiple/conflicting verified matches stay in review. Partial numbers and email alone never merge customers.
 - Every committed row is an atomic D1 batch: guarded row claim, optional customer, enquiry, source evidence, source-attributed activity, audit and final outcome. Revision checks and a unique external key prevent duplicate rows under concurrent retries. Contact/assignment changes invalidate the claim. No partial customer/enquiry survives a transaction failure.
 - All imported enquiries start NEW, buying interest unassessed, and trip fit **Needs qualification**. Group/visa source answers remain evidence for staff assessment. Source CREATED/Done and historical colours do not establish sales progress. Converted notes do not establish money or booking.

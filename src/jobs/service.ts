@@ -1,4 +1,5 @@
 import { reviewStorage } from "./storage";
+import { sweepMeta, processMetaLead } from "../server/meta-service";
 import type { Bindings } from "../server/types";
 import {
   checksEnabled,
@@ -217,7 +218,9 @@ export async function consume(batch: MessageBatch<JobMessage>, env: Bindings) {
       continue;
     }
     try {
-      await processJob(env, message.body.id);
+      if (message.body.id.startsWith("meta:"))
+        await processMetaLead(env, message.body.id.slice(5));
+      else await processJob(env, message.body.id);
       message.ack();
     } catch {
       message.retry({ delaySeconds: 60 });
@@ -237,6 +240,7 @@ export async function sweep(
     .run();
   try {
     const result = await sweepWork(env, options);
+    await sweepMeta(env);
     await env.DB.prepare(
       "UPDATE service_status SET last_success=?,last_error=NULL WHERE id='due_checks'",
     )

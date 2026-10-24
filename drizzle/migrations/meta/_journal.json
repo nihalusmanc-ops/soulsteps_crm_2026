@@ -71,6 +71,13 @@
       "when": 1792838961110,
       "tag": "0009_sad_xavin",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1792840456278,
+      "tag": "0010_oval_reavers",
+      "breakpoints": true
     }
   ]
 }

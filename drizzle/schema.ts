@@ -388,3 +388,38 @@ export const importRows = sqliteTable(
   },
   (t) => [uniqueIndex("import_batch_row").on(t.batchId, t.rowNumber)],
 );
+export const metaForms = sqliteTable(
+  "meta_forms",
+  {
+    id: text("id").primaryKey(),
+    pageId: text("page_id").notNull(),
+    formId: text("form_id").notNull(),
+    version: integer("version").notNull(),
+    data: text("data").notNull(),
+    cursor: text("cursor"),
+    lastScanAt: text("last_scan_at"),
+    lastScanCount: integer("last_scan_count"),
+  },
+  (t) => [uniqueIndex("meta_page_form").on(t.pageId, t.formId)],
+);
+export const metaLeads = sqliteTable(
+  "meta_leads",
+  {
+    id: text("id").primaryKey(),
+    pageId: text("page_id").notNull(),
+    formId: text("form_id").notNull(),
+    mode: text("mode").notNull(),
+    notification: text("notification").notNull(),
+    payload: text("payload"),
+    receivedAt: text("received_at").notNull(),
+    status: text("status").notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    nextRetryAt: text("next_retry_at").notNull(),
+    leaseUntil: text("lease_until"),
+    token: text("token"),
+    lastError: text("last_error"),
+    enquiryId: text("enquiry_id").references(() => enquiries.id),
+    mappingVersion: integer("mapping_version"),
+  },
+  (t) => [index("meta_pending_retry").on(t.status, t.nextRetryAt)],
+);

@@ -5,6 +5,8 @@ This folder contains the original specification and the local Soulsteps CRM impl
 
 ## Current application
 
+M5 direct Meta intake is implemented locally with signed public webhook handling, durable retrieval/retries, reviewed form mappings, source deduplication, manager health and bounded reconciliation. Live integration remains disabled pending credentials, connector/asset verification and an official test-lead round trip. Start with [the M5 handover](docs/18_MILESTONE_5_HANDOVER.md).
+
 Milestone 4 is implemented for synthetic historical imports: manager preview, private persistent batches, quarantine, explicit review/assignment and transactional idempotent commit. Controlled XLSX preprocessing preserves source cells/styles with reviewed form mappings. Actual workbook migration remains pending owner review. See [the current M4 handover](docs/17_MILESTONE_4_HANDOVER.md).
 
 Milestones 1–3 provide the CRM interface, persistent D1, authorised Hono API, private receipts/backups, durable in-app checks, manager settings and reviewed trip rules. Run `npm ci` then `npm run dev` from this folder and open http://127.0.0.1:5173. Keep the server running. The [M3 setup guide](docs/15_MILESTONE_3_HANDOVER.md) covers the underlying runtime. The specification and original instructions below remain the project contract.

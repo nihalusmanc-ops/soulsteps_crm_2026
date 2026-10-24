@@ -25,6 +25,8 @@ export const backupTables = [
   "in_app_notifications",
   "import_batches",
   "import_rows",
+  "meta_forms",
+  "meta_leads",
 ] as const;
 export type BackupSnapshot = {
   format: 1;
