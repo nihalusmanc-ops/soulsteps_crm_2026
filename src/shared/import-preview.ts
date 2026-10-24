@@ -6,6 +6,16 @@ export const importDocumentSchema = z
   .object({
     format: z.literal("soulsteps-import-v1"),
     sheet: z.string().min(1).max(100),
+    mappingVersion: z.string().min(1).max(100).optional(),
+    evidence: z
+      .object({
+        sourceChecksum: z.string().regex(/^[a-f0-9]{64}$/),
+        mappingChecksum: z.string().regex(/^[a-f0-9]{64}$/),
+        stylesXml: z.string().max(100000),
+        sourceHeaders: z.array(z.string().max(10000)).max(100),
+      })
+      .strict()
+      .optional(),
     headers: z.array(z.string().max(500)).max(100),
     rows: z
       .array(
@@ -14,6 +24,20 @@ export const importDocumentSchema = z
             formVersion: z.enum(["v2", "v3", "unknown"]),
             cells: z.array(z.string().max(10000)).max(100),
             styles: z.array(z.string().max(500)).max(100),
+            sourceCells: z
+              .array(
+                z
+                  .object({
+                    reference: z.string().max(20),
+                    type: z.string().max(30),
+                    value: z.string().max(10000),
+                    style: z.string().max(500),
+                    formula: z.string().max(10000).optional(),
+                  })
+                  .strict(),
+              )
+              .max(100)
+              .optional(),
           })
           .strict(),
       )

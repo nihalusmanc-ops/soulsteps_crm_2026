@@ -73,6 +73,15 @@ for (const file of snapshot.receipts) {
   )
     throw new Error("Invalid backup receipt association.");
 }
+// M3 snapshots predate imports. Their absence means there were no import
+// batches to restore, rather than a missing operational table.
+if (
+  !("import_batches" in snapshot.tables) &&
+  !("import_rows" in snapshot.tables)
+) {
+  snapshot.tables.import_batches = [];
+  snapshot.tables.import_rows = [];
+}
 if (backupTables.some((table) => !Array.isArray(snapshot.tables[table])))
   throw new Error("Backup is missing required tables.");
 mkdirSync(".wrangler", { recursive: true });
@@ -263,12 +272,23 @@ try {
     )
       throw new Error("Restored receipt download mismatch.");
   }
+  for (const batch of snapshot.tables.import_batches) {
+    const result = await fetch(
+      `http://127.0.0.1:8793/api/management/imports/batches/${batch.id}/source`,
+    );
+    if (
+      !result.ok ||
+      hash(new Uint8Array(await result.arrayBuffer())) !== batch.checksum
+    )
+      throw new Error("Restored import source checksum mismatch.");
+  }
   const report = {
     status: "passed",
     sourceBackup: requested.id,
     createdAt: new Date().toISOString(),
     tables: verifiedCounts,
     receiptCopies: snapshot.receipts.length,
+    importSources: snapshot.tables.import_batches.length,
     checksHeld: true,
     outboundEnabled: false,
     destination: directory,

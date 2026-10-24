@@ -1,0 +1,20 @@
+{
+  "reviewed": false,
+  "version": "replace-with-reviewed-version",
+  "sheetName": "Sheet1",
+  "sheetPath": "xl/worksheets/sheet1.xml",
+  "headerRow": 1,
+  "formIdColumn": 8,
+  "forms": {
+    "FICTIONAL-FORM-V3-REPLACE": {
+      "version": "v3",
+      "columns": {"id":0,"created_time":1,"name":2,"phone":3,"email":4,"group":5,"visa":6,"lead_status":7},
+      "notesFrom":9
+    },
+    "FICTIONAL-FORM-V2-REPLACE": {
+      "version": "v2",
+      "columns": {"id":0,"created_time":1,"name":2,"phone":3,"email":4,"journey":5,"group":6,"visa":7,"lead_status":8},
+      "notesFrom":10
+    }
+  }
+}

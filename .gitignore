@@ -8,3 +8,4 @@ test-results/
 
 .local-dev.log
 .local-worker.log
+private/

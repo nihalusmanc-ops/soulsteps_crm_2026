@@ -44,3 +44,12 @@ Missing content and credentials do not block the independent M2–M4 engineering
 # M4 preview checkpoint
 
 Proposed implementation default: start with an explicitly versioned synthetic JSON preprocessing contract, not a guessed mapping for an unavailable workbook. Server validates string cells and preserves raw positions/styles; review-only preview has no database side effects. Mapping is not approved for real form IDs. Missing original data does not block the remaining batch persistence and transactional commit work. See docs/16_IMPORT_PREVIEW_CHECKPOINT.md for scope and remaining M4 requirements.
+
+## M4 implementation
+
+- Persistent private batches, explicit per-row review, trip/staff assignment and bounded transactional commit now replace the preview-only limitation. Exact input text is retained in R2 and D1; backups include both import tables and can restore source downloads independently of R2 import copies.
+- External source IDs deduplicate enquiries globally across historical batches. Re-import skips existing enquiries without applying legacy changes; update count stays zero and newer staff activity is preserved. Different source IDs can produce separate enquiries for one customer.
+- Customer matching requires a complete phone, manager attestation of independent verification and an existing verified matching phone, with agreeing name/available email. Conflicts return to review. Email alone and partial numbers never merge records. Unverified imported phones remain only in source evidence.
+- Imported operational defaults are NEW, unassessed interest and Needs qualification, with no historical task generation, verified payment, quotation, booking or outbound jobs. Commit time is the receipt time; source dates/notes remain raw and source-attributed.
+- Controlled local XLSX preprocessing uses explicit reviewed form-ID mappings. It preserves original cell positions/types/styles and source/mapping checksums, rejects macros/entities and quarantines numeric-ID/formula/unknown-form rows. Actual workbook/form mappings still require owner review; no real data was imported.
+- Retention, original colour meanings, dummy criteria, historical ambiguities and migration cutover remain owner decisions. See docs/17_MILESTONE_4_HANDOVER.md for usage, bounds and validation.

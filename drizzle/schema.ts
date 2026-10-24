@@ -359,3 +359,32 @@ export const storageReview = sqliteTable("storage_review", {
   createdAt: text("created_at").notNull(),
   data: text("data", { mode: "json" }).notNull(),
 });
+export const importBatches = sqliteTable("import_batches", {
+  id: text("id").primaryKey(),
+  checksum: text("checksum").notNull().unique(),
+  mappingVersion: text("mapping_version").notNull(),
+  rawText: text("raw_text").notNull(),
+  objectKey: text("object_key").notNull(),
+  createdBy: text("created_by")
+    .notNull()
+    .references(() => users.id),
+  createdAt: text("created_at").notNull(),
+});
+export const importRows = sqliteTable(
+  "import_rows",
+  {
+    id: text("id").primaryKey(),
+    batchId: text("batch_id")
+      .notNull()
+      .references(() => importBatches.id),
+    rowNumber: integer("row_number").notNull(),
+    revision: integer("revision").notNull().default(0),
+    status: text("status").notNull(),
+    data: text("data").notNull(),
+    review: text("review"),
+    enquiryId: text("enquiry_id").references(() => enquiries.id),
+    error: text("error"),
+    token: text("token"),
+  },
+  (t) => [uniqueIndex("import_batch_row").on(t.batchId, t.rowNumber)],
+);

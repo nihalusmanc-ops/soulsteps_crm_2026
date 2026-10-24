@@ -1,5 +1,7 @@
 # Historical import preview checkpoint
 
+Historical checkpoint: this describes the earlier preview-only implementation. It is superseded by [the M4 handover](17_MILESTONE_4_HANDOVER.md), including persistent review and commit.
+
 Milestone 4 is in progress, not complete. Milestone 3 remains the last completed milestone.
 
 Run `npm run dev`, open http://127.0.0.1:5173/settings as the local manager, and select **Import preview**. Download the synthetic JSON fixture and choose it in the preview input. The app sends the document to the authenticated manager-only API for validation and SHA-256 checksum computation. The request body is not logged or persisted. The preview disappears on navigation/reload.

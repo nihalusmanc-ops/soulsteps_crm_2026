@@ -23,6 +23,8 @@ export const backupTables = [
   "scheduled_actions",
   "job_attempts",
   "in_app_notifications",
+  "import_batches",
+  "import_rows",
 ] as const;
 export type BackupSnapshot = {
   format: 1;

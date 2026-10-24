@@ -5,9 +5,9 @@ This folder contains the original specification and the local Soulsteps CRM impl
 
 ## Current application
 
-Historical import now has a manager-only, review-only synthetic preview under Settings → Import preview. M4 is still in progress; persistent batches and safe commit remain to be implemented. See [the preview checkpoint](docs/16_IMPORT_PREVIEW_CHECKPOINT.md).
+Milestone 4 is implemented for synthetic historical imports: manager preview, private persistent batches, quarantine, explicit review/assignment and transactional idempotent commit. Controlled XLSX preprocessing preserves source cells/styles with reviewed form mappings. Actual workbook migration remains pending owner review. See [the current M4 handover](docs/17_MILESTONE_4_HANDOVER.md).
 
-Milestone 3 is implemented locally: persistent D1, authorised Hono API, private receipts/backups, durable in-app checks, manager settings and reviewed trip rules. Run `npm ci` then `npm run dev` from this folder and open http://127.0.0.1:5173. Keep the server running. Follow [the current setup and handover](docs/15_MILESTONE_3_HANDOVER.md). The specification and original instructions below remain the project contract.
+Milestones 1–3 provide the CRM interface, persistent D1, authorised Hono API, private receipts/backups, durable in-app checks, manager settings and reviewed trip rules. Run `npm ci` then `npm run dev` from this folder and open http://127.0.0.1:5173. Keep the server running. The [M3 setup guide](docs/15_MILESTONE_3_HANDOVER.md) covers the underlying runtime. The specification and original instructions below remain the project contract.
 
 ## Start in VS Code
 1. Extract this ZIP into your `soulsteps-crm` folder. Open that folder in VS Code.

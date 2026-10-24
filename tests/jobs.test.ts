@@ -1,4 +1,6 @@
 import { reviewStorage } from "../src/jobs/storage";
+import { ImportService } from "../src/server/import-service";
+import importFixture from "../public/samples/import-preview.json";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { Miniflare, convertV4MiniflareOptions } from "miniflare";
 import { unstable_splitSqlQuery } from "wrangler";
@@ -83,6 +85,153 @@ beforeEach(async () => {
 }, 30000);
 afterEach(async () => {
   await runtime?.dispose();
+});
+
+describe("persistent historical imports", () => {
+  const service = () =>
+    new ImportService(env, {
+      id: "manager",
+      name: "Manager fixture",
+      role: "manager",
+      local: true,
+    });
+  async function ready(
+    text = JSON.stringify(importFixture),
+    verifiedPhone = false,
+  ) {
+    const svc = service(),
+      batch = await svc.upload(text),
+      row = batch.rows[0];
+    const updated = await svc.review(batch.id, row.id, {
+      revision: row.revision,
+      tripId: seed().trips[0].id,
+      ownerId: "staff",
+      acknowledged: true,
+      verifiedPhone,
+      reason: "Reviewed fictional source; keep ambiguous history raw.",
+    });
+    return { svc, batch: updated, row: updated.rows[0] };
+  }
+  it("persists source evidence, excludes dummy/unknown rows, and commits only explicitly reviewed rows", async () => {
+    const { svc, batch, row } = await ready();
+    expect((await svc.upload(JSON.stringify(importFixture))).id).toBe(batch.id);
+    const original = await env.DB.prepare(
+      "SELECT raw_text,object_key FROM import_batches WHERE id=?",
+    )
+      .bind(batch.id)
+      .first<{ raw_text: string; object_key: string }>();
+    expect(original!.raw_text).toBe(JSON.stringify(importFixture));
+    expect(await env.FILES_BUCKET.head(original!.object_key)).toBeTruthy();
+    for (const blocked of batch.rows.slice(2))
+      await expect(
+        svc.review(batch.id, blocked.id, {
+          revision: 0,
+          tripId: seed().trips[0].id,
+          ownerId: "staff",
+          acknowledged: true,
+          verifiedPhone: false,
+          reason: "Cannot approve dummy or unknown",
+        }),
+      ).rejects.toThrow();
+    const committed = await svc.commit(batch.id, [row.id]);
+    expect(committed.counts).toEqual({
+      review: 2,
+      ready: 0,
+      committed: 1,
+      skip: 1,
+    });
+    const e = await repo.enquiry(committed.rows[0].enquiry_id!);
+    expect(e).toMatchObject({
+      stage: "NEW",
+      temperature: "unassessed",
+      rank: null,
+      phone: null,
+    });
+    expect(e.tasks).toEqual([]);
+    expect(e.payments).toEqual([]);
+    expect(e.booking).toBeUndefined();
+    expect(e.originalNote).toContain("Wednesday");
+    expect(e.activities[0].actor).toBe("Historical import");
+    await svc.commit(batch.id, [row.id]);
+    expect((await repo.state()).enquiries).toHaveLength(2);
+  });
+  it("re-import preserves newer staff history and never overwrites an enquiry", async () => {
+    const { svc, batch, row } = await ready();
+    const committed = await svc.commit(batch.id, [row.id]);
+    const id = committed.rows[0].enquiry_id!,
+      e = await repo.enquiry(id);
+    await repo.command(
+      id,
+      e.revision,
+      { type: "note", text: "Newer staff note must survive" },
+      crypto.randomUUID(),
+      "staff-note",
+      "test",
+    );
+    const changed = structuredClone(importFixture);
+    changed.rows[0].cells.push("Changed legacy note");
+    const next = await ready(JSON.stringify(changed));
+    const result = await svc.commit(next.batch.id, [next.row.id]);
+    expect(result.rows[0].status).toBe("skip");
+    expect(result.rows[0].enquiry_id).toBe(id);
+    expect(
+      (await repo.enquiry(id)).activities.some((a) =>
+        a.text.includes("Newer staff note"),
+      ),
+    ).toBe(true);
+    expect((await repo.enquiry(id)).originalNote).not.toContain(
+      "Changed legacy",
+    );
+  });
+  it("concurrent retries create one source and one enquiry", async () => {
+    const { svc, batch, row } = await ready();
+    await Promise.all([
+      svc.commit(batch.id, [row.id]),
+      svc.commit(batch.id, [row.id]),
+    ]);
+    expect((await repo.state()).enquiries).toHaveLength(2);
+    expect((await svc.batch(batch.id)).rows[0].status).toBe("committed");
+  });
+  it("an activity failure rolls back customer, enquiry and source and remains retryable", async () => {
+    const { svc, batch, row } = await ready();
+    await env.DB.prepare(
+      "CREATE TRIGGER import_test_failure BEFORE INSERT ON activities BEGIN SELECT RAISE(ABORT,'fixture failure'); END",
+    ).run();
+    const result = await svc.commit(batch.id, [row.id]);
+    expect(result.rows[0].status).toBe("ready");
+    expect(result.rows[0].error).toContain("No partial row writes");
+    expect((await repo.state()).enquiries).toHaveLength(1);
+    expect(
+      (await env.DB.prepare("SELECT COUNT(*) AS n FROM customers").first<{
+        n: number;
+      }>())!.n,
+    ).toBe(1);
+    await env.DB.prepare("DROP TRIGGER import_test_failure").run();
+    expect((await svc.commit(batch.id, [row.id])).rows[0].status).toBe(
+      "committed",
+    );
+  });
+  it("matches only verified full phone evidence; repeat lead gets a separate enquiry", async () => {
+    const source = structuredClone(importFixture);
+    source.rows[0].cells[3] = "+12025550123";
+    const first = await ready(JSON.stringify(source), true);
+    const a = await first.svc.commit(first.batch.id, [first.row.id]);
+    source.rows[0].cells[0] = "90071992547409939";
+    const second = await ready(JSON.stringify(source), true);
+    const b = await second.svc.commit(second.batch.id, [second.row.id]);
+    const e1 = await repo.enquiry(a.rows[0].enquiry_id!),
+      e2 = await repo.enquiry(b.rows[0].enquiry_id!);
+    expect(e1.customerId).toBe(e2.customerId);
+    expect(e1.id).not.toBe(e2.id);
+    source.rows[0].cells[0] = "90071992547409940";
+    source.rows[0].cells[2] = "Different fictional person";
+    const conflict = await ready(JSON.stringify(source), true);
+    const result = await conflict.svc.commit(conflict.batch.id, [
+      conflict.row.id,
+    ]);
+    expect(result.rows[0].status).toBe("review");
+    expect(result.rows[0].error).toContain("conflicts");
+  });
 });
 async function task(hours = -1) {
   const e = await repo.enquiry(enquiryId);
