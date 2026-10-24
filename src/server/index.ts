@@ -1,4 +1,5 @@
 import { managementRoutes } from "./management";
+import { importRoutes } from "./imports";
 import { sweep, consume, type JobMessage } from "../jobs/service";
 import type { Bindings } from "./types";
 import { Hono } from "hono";
@@ -191,6 +192,7 @@ app.get("/api/reports", async (c) => {
 });
 app.route("/api", filesRoutes);
 app.route("/api", managementRoutes);
+app.route("/api", importRoutes);
 app.all("/api/*", (c) =>
   c.json(
     {

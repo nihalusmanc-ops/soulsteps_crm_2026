@@ -1,0 +1,11 @@
+{
+  "format": "soulsteps-import-v1",
+  "sheet": "Synthetic examples — no customer data",
+  "headers": ["id", "created_time", "name", "phone", "email", "group", "visa", "lead_status"],
+  "rows": [
+    {"formVersion":"v2","cells":["90071992547409931","2025-10-12T10:00:00Z","Fictional v2 traveller","REDACTED","demo@example.invalid","self-drive","couple","all","CREATED","Wednesday: itinerary sent"],"styles":["fill:red","style:12"]},
+    {"formVersion":"v3","cells":["90071992547409932","February","Fictional v3 traveller","SHORTENED","demo2@example.invalid","family","some","CREATED","Converted — review evidence"],"styles":["fill:cyan","style:8"]},
+    {"formVersion":"v3","cells":["90071992547409933","2025-10-12T10:00:00Z","Dummy test","","","solo","none","Done"],"styles":["fill:orange"]},
+    {"formVersion":"unknown","cells":["90071992547409934","Wednesday","Unknown layout","","","two_people"],"styles":[]}
+  ]
+}

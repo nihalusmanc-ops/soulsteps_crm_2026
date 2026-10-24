@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ImportPreview } from "./ImportPreview";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Button } from "./components/ui/button";
@@ -119,6 +120,7 @@ export function Management() {
             ["health", "Health & retries"],
             ["settings", "Workspace settings"],
             ["audit", "Audit history"],
+            ["imports", "Import preview"],
           ].map(([id, label]) => (
             <button
               key={id}
@@ -130,6 +132,7 @@ export function Management() {
           ))}
         </div>
         <div className="management-content">
+          {tab === "imports" && <ImportPreview />}
           {tab === "health" && (
             <>
               {jobs.isError && <p role="alert">{jobs.error.message}</p>}

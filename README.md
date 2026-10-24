@@ -5,6 +5,8 @@ This folder contains the original specification and the local Soulsteps CRM impl
 
 ## Current application
 
+Historical import now has a manager-only, review-only synthetic preview under Settings → Import preview. M4 is still in progress; persistent batches and safe commit remain to be implemented. See [the preview checkpoint](docs/16_IMPORT_PREVIEW_CHECKPOINT.md).
+
 Milestone 3 is implemented locally: persistent D1, authorised Hono API, private receipts/backups, durable in-app checks, manager settings and reviewed trip rules. Run `npm ci` then `npm run dev` from this folder and open http://127.0.0.1:5173. Keep the server running. Follow [the current setup and handover](docs/15_MILESTONE_3_HANDOVER.md). The specification and original instructions below remain the project contract.
 
 ## Start in VS Code
