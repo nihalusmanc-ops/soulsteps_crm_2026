@@ -1,0 +1,116 @@
+{
+  "status": "passed",
+  "sourceBackup": "backup:manual:DEMO-MANAGER:3b3264d6-75ab-4f58-9377-0d085b533c4f",
+  "createdAt": "2026-10-24T12:43:08.757Z",
+  "tables": [
+    {
+      "table_name": "users",
+      "row_count": 4
+    },
+    {
+      "table_name": "customers",
+      "row_count": 13
+    },
+    {
+      "table_name": "trips",
+      "row_count": 1
+    },
+    {
+      "table_name": "workspace_settings",
+      "row_count": 1
+    },
+    {
+      "table_name": "service_status",
+      "row_count": 1
+    },
+    {
+      "table_name": "storage_review",
+      "row_count": 1
+    },
+    {
+      "table_name": "enquiries",
+      "row_count": 13
+    },
+    {
+      "table_name": "enquiry_sources",
+      "row_count": 12
+    },
+    {
+      "table_name": "tasks",
+      "row_count": 5
+    },
+    {
+      "table_name": "activities",
+      "row_count": 15
+    },
+    {
+      "table_name": "quotations",
+      "row_count": 3
+    },
+    {
+      "table_name": "payments",
+      "row_count": 3
+    },
+    {
+      "table_name": "bookings",
+      "row_count": 1
+    },
+    {
+      "table_name": "files",
+      "row_count": 2
+    },
+    {
+      "table_name": "idempotency_keys",
+      "row_count": 2
+    },
+    {
+      "table_name": "audit_events",
+      "row_count": 3
+    },
+    {
+      "table_name": "trip_content_versions",
+      "row_count": 0
+    },
+    {
+      "table_name": "priority_rule_versions",
+      "row_count": 0
+    },
+    {
+      "table_name": "rule_previews",
+      "row_count": 0
+    },
+    {
+      "table_name": "scheduled_actions",
+      "row_count": 6
+    },
+    {
+      "table_name": "job_attempts",
+      "row_count": 5
+    },
+    {
+      "table_name": "in_app_notifications",
+      "row_count": 2
+    },
+    {
+      "table_name": "import_batches",
+      "row_count": 1
+    },
+    {
+      "table_name": "import_rows",
+      "row_count": 4
+    },
+    {
+      "table_name": "meta_forms",
+      "row_count": 0
+    },
+    {
+      "table_name": "meta_leads",
+      "row_count": 1
+    }
+  ],
+  "receiptCopies": 2,
+  "importSources": 1,
+  "metaSources": 1,
+  "checksHeld": true,
+  "outboundEnabled": false
+}

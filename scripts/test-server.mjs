@@ -4,6 +4,9 @@ import { resolve } from "node:path";
 mkdirSync(".wrangler", { recursive: true });
 const persist = mkdtempSync(resolve(".wrangler/e2e-"));
 const cli = "node_modules/wrangler/bin/wrangler.js";
+const port = process.env.SOULSTEPS_TEST_PORT || "8791";
+if (!["8791", "8794"].includes(port))
+  throw new Error("Only isolated test ports 8791 or 8794 are supported.");
 function run(args) {
   return new Promise((resolve, reject) => {
     const c = spawn(process.execPath, args, {
@@ -42,7 +45,7 @@ const worker = spawn(
     "--ip",
     "127.0.0.1",
     "--port",
-    "8791",
+    port,
     "--persist-to",
     persist,
   ],

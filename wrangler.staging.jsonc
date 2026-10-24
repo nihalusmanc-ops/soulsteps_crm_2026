@@ -1,0 +1,85 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "soulsteps-crm-staging",
+  "main": "src/server/index.ts",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": false,
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application",
+    "binding": "ASSETS",
+    "run_worker_first": [
+      "/api/*",
+      "/webhooks/*"
+    ]
+  },
+  "vars": {
+    "APP_ENV": "staging",
+    "BUSINESS_TIMEZONE": "Asia/Dubai",
+    "META_LIVE_INTAKE_ENABLED": "false",
+    "PUBLIC_APP_URL": "https://staging.soulsteps.invalid",
+    "ACCESS_TEAM_DOMAIN": "",
+    "ACCESS_AUDIENCE": ""
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "soulsteps-staging",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "drizzle/migrations"
+    }
+  ],
+  "define": {
+    "__LOCAL_DEV__": "false"
+  },
+  "r2_buckets": [
+    {
+      "binding": "FILES_BUCKET",
+      "bucket_name": "soulsteps-staging-private-receipts"
+    }
+  ],
+  "triggers": {
+    "crons": [
+      "*/5 * * * *"
+    ]
+  },
+  "queues": {
+    "producers": [
+      {
+        "binding": "JOBS_QUEUE",
+        "queue": "soulsteps-staging-jobs"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "soulsteps-staging-jobs",
+        "max_batch_size": 1,
+        "max_batch_timeout": 1,
+        "max_retries": 3,
+        "dead_letter_queue": "soulsteps-staging-dead-letters"
+      }
+    ]
+  },
+  "preview_urls": false,
+  "limits": {
+    "cpu_ms": 1000
+  },
+  "observability": {
+    "enabled": true,
+    "redact_query_string": true,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": false,
+      "head_sampling_rate": 0.1
+    },
+    "traces": {
+      "enabled": false
+    }
+  },
+  "routes": [
+    {
+      "pattern": "staging.soulsteps.invalid",
+      "custom_domain": true
+    }
+  ]
+}

@@ -5,6 +5,8 @@ This folder contains the original specification and the local Soulsteps CRM impl
 
 ## Current application
 
+M6 release preparation is implemented: isolated staging/production templates, owner-evidence checks, manager readiness diagnostics, security headers, query indexes, compiled authentication checks, a synthetic restore runner and validation-only CI. Nothing is deployed; actual cloud configuration, owner approvals and live acceptance remain pending. See [the M6 release runbook](docs/19_MILESTONE_6_RELEASE_RUNBOOK.md).
+
 M5 direct Meta intake is implemented locally with signed public webhook handling, durable retrieval/retries, reviewed form mappings, source deduplication, manager health and bounded reconciliation. Live integration remains disabled pending credentials, connector/asset verification and an official test-lead round trip. Start with [the M5 handover](docs/18_MILESTONE_5_HANDOVER.md).
 
 Milestone 4 is implemented for synthetic historical imports: manager preview, private persistent batches, quarantine, explicit review/assignment and transactional idempotent commit. Controlled XLSX preprocessing preserves source cells/styles with reviewed form mappings. Actual workbook migration remains pending owner review. See [the current M4 handover](docs/17_MILESTONE_4_HANDOVER.md).

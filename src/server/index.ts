@@ -1,9 +1,11 @@
 import { managementRoutes } from "./management";
 import { importRoutes } from "./imports";
 import { metaPublic, metaRoutes } from "./meta";
+import { releaseRoutes } from "./release";
 import { sweep, consume, type JobMessage } from "../jobs/service";
 import type { Bindings } from "./types";
 import { Hono } from "hono";
+import { secureHeaders } from "hono/secure-headers";
 import { setCookie } from "hono/cookie";
 import { bodyLimit } from "hono/body-limit";
 import { z, ZodError } from "zod";
@@ -20,6 +22,14 @@ import { createSchema, mutationSchema, tripSchema } from "../shared/api";
 import { filesRoutes } from "./files";
 import { digest, requestKey } from "./request";
 export const app = new Hono<AppEnv>();
+app.use(
+  "*",
+  secureHeaders({
+    referrerPolicy: "no-referrer",
+    xFrameOptions: "DENY",
+    permissionsPolicy: { camera: [], microphone: [], geolocation: [] },
+  }),
+);
 app.use("/api/*", async (c, next) => {
   c.set("requestId", crypto.randomUUID());
   c.header("Cache-Control", "no-store");
@@ -70,7 +80,7 @@ app.onError((error, c) => {
 app.get("/api/health", (c) =>
   c.json({
     status: "ok",
-    milestone: 5,
+    milestone: 6,
     mode: localFixtureAllowed(c.req.url, c.env) ? "local-demo" : "staff",
     persistence: "D1",
     outboundMessaging: false,
@@ -196,6 +206,7 @@ app.route("/api", filesRoutes);
 app.route("/api", managementRoutes);
 app.route("/api", importRoutes);
 app.route("/api", metaRoutes);
+app.route("/api", releaseRoutes);
 app.all("/api/*", (c) =>
   c.json(
     {

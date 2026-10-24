@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ImportPreview } from "./ImportPreview";
 import { MetaIntegration } from "./MetaIntegration";
+import { ReleaseReadiness } from "./ReleaseReadiness";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Button } from "./components/ui/button";
@@ -123,6 +124,7 @@ export function Management() {
             ["audit", "Audit history"],
             ["imports", "Import preview"],
             ["meta", "Meta intake"],
+            ["release", "Release readiness"],
           ].map(([id, label]) => (
             <button
               key={id}
@@ -136,6 +138,7 @@ export function Management() {
         <div className="management-content">
           {tab === "imports" && <ImportPreview />}
           {tab === "meta" && <MetaIntegration />}
+          {tab === "release" && <ReleaseReadiness />}
           {tab === "health" && (
             <>
               {jobs.isError && <p role="alert">{jobs.error.message}</p>}

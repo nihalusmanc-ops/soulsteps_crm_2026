@@ -1,0 +1,78 @@
+{
+  "environment": "staging",
+  "commit": "0000000000000000000000000000000000000000",
+  "gates": {
+    "accessAndInvites": {
+      "status": "pending",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "evidence": null
+    },
+    "privateStorageAndDomains": {
+      "status": "pending",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "evidence": null
+    },
+    "staffWorkflow": {
+      "status": "pending",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "evidence": null
+    },
+    "restoreDrill": {
+      "status": "pending",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "evidence": null
+    },
+    "monitoringAndBudget": {
+      "status": "pending",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "evidence": null
+    },
+    "retentionAndRecovery": {
+      "status": "pending",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "evidence": null
+    },
+    "rollbackPlan": {
+      "status": "pending",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "evidence": null
+    },
+    "stagingSyntheticData": {
+      "status": "pending",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "evidence": null
+    },
+    "productionContentAndTerms": {
+      "status": "pending",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "evidence": null
+    },
+    "rankingPolicy": {
+      "status": "pending",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "evidence": null
+    },
+    "migrationCutover": {
+      "status": "pending",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "evidence": null
+    },
+    "metaAcceptance": {
+      "status": "pending",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "evidence": null
+    }
+  }
+}

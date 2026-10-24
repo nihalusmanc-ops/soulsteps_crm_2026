@@ -16,7 +16,10 @@
   "vars": {
     "APP_ENV": "production",
     "BUSINESS_TIMEZONE": "Asia/Dubai",
-    "META_LIVE_INTAKE_ENABLED": "false"
+    "META_LIVE_INTAKE_ENABLED": "false",
+    "PUBLIC_APP_URL": "https://crm.soulsteps.invalid",
+    "ACCESS_TEAM_DOMAIN": "",
+    "ACCESS_AUDIENCE": ""
   },
   "d1_databases": [
     {
@@ -56,5 +59,27 @@
         "dead_letter_queue": "soulsteps-dead-letters"
       }
     ]
-  }
+  },
+  "preview_urls": false,
+  "limits": {
+    "cpu_ms": 1000
+  },
+  "observability": {
+    "enabled": true,
+    "redact_query_string": true,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": false,
+      "head_sampling_rate": 0.1
+    },
+    "traces": {
+      "enabled": false
+    }
+  },
+  "routes": [
+    {
+      "pattern": "crm.soulsteps.invalid",
+      "custom_domain": true
+    }
+  ]
 }

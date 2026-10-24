@@ -14,6 +14,7 @@ import {
 } from "../src/shared/meta";
 import { app } from "../src/server/index";
 import { createHmac } from "node:crypto";
+import { operationalReadiness } from "../src/server/release";
 import importFixture from "../public/samples/import-preview.json";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { Miniflare, convertV4MiniflareOptions } from "miniflare";
@@ -99,6 +100,37 @@ beforeEach(async () => {
 }, 30000);
 afterEach(async () => {
   await runtime?.dispose();
+});
+
+describe("release diagnostics and database access", () => {
+  it("reports real local state without fabricating release approval or cloud spending", async () => {
+    const report = await operationalReadiness(env, true);
+    expect(report.releaseApproved).toBeNull();
+    expect(report.cloudBilling).toMatchObject({
+      verified: false,
+      spend: null,
+      alertsConfigured: null,
+    });
+    expect(report.metrics.enquiries).toBe(1);
+    expect(report.checks.find((c) => c.id === "mode")?.status).toBe("blocked");
+    expect(report.checks.find((c) => c.id === "indexes")?.status).toBe("pass");
+  });
+  it("uses enquiry/customer and task/enquiry indexes for scoped lookups", async () => {
+    const plans = await env.DB.batch<{ detail: string }>([
+      env.DB.prepare(
+        "EXPLAIN QUERY PLAN SELECT id FROM enquiries WHERE customer_id=?",
+      ).bind("fictional"),
+      env.DB.prepare(
+        "EXPLAIN QUERY PLAN SELECT id FROM tasks WHERE enquiry_id=? AND status='pending' ORDER BY due_at",
+      ).bind(enquiryId),
+    ]);
+    expect(plans[0].results.map((r) => r.detail).join(" ")).toContain(
+      "enquiry_customer",
+    );
+    expect(plans[1].results.map((r) => r.detail).join(" ")).toContain(
+      "task_enquiry_status_due",
+    );
+  });
 });
 
 describe("Meta durable lead intake", () => {

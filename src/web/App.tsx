@@ -480,7 +480,7 @@ export default function App() {
         <footer>
           Soulsteps CRM{" "}
           <span>Thoughtful journeys start with thoughtful follow-ups.</span>
-          <span>Lead intake · v0.5</span>
+          <span>Release preparation · v0.6</span>
         </footer>
       </div>
       {toast && (

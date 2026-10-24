@@ -64,6 +64,7 @@ export const enquiries = sqliteTable(
     index("enquiry_owner_stage").on(t.ownerId, t.stage),
     index("enquiry_trip_stage").on(t.tripId, t.stage),
     index("enquiry_created").on(t.createdAt),
+    index("enquiry_customer").on(t.customerId),
     check("nonnegative_revision", sql`${t.revision} >= 0`),
   ],
 );
@@ -93,6 +94,7 @@ export const tasks = sqliteTable(
   },
   (t) => [
     index("task_owner_status_due").on(t.ownerId, t.status, t.dueAt),
+    index("task_enquiry_status_due").on(t.enquiryId, t.status, t.dueAt),
     check(
       "valid_task_status",
       sql`${t.status} IN ('pending','completed','cancelled')`,
