@@ -38,7 +38,6 @@ import {
   Plus,
   Search,
   ShieldCheck,
-  Sparkles,
   Users,
   Wallet,
   X,
@@ -135,23 +134,11 @@ function Empty({
     </div>
   );
 }
-function Heading({
-  eyebrow,
-  title,
-  subtitle,
-  children,
-}: {
-  eyebrow: string;
-  title: string;
-  subtitle: string;
-  children?: ReactNode;
-}) {
+function Heading({ title, children }: { title: string; children?: ReactNode }) {
   return (
     <div className="page-heading">
       <div>
-        <div className="eyebrow">{eyebrow}</div>
         <h1>{title}</h1>
-        <p>{subtitle}</p>
       </div>
       <div className="heading-actions">{children}</div>
     </div>
@@ -172,7 +159,7 @@ function Stat({
     <div className={`stat ${accent}`}>
       <span>{label}</span>
       <strong>{value}</strong>
-      <small>{foot}</small>
+      {foot && <small>{foot}</small>}
     </div>
   );
 }
@@ -191,10 +178,7 @@ export default function App() {
   const [create, setCreate] = useState(false);
   const [existingCustomer, setExistingCustomer] = useState("");
   const navigate = useNavigate();
-  async function run(
-    work: () => Promise<unknown>,
-    message = "Saved to the CRM database",
-  ) {
+  async function run(work: () => Promise<unknown>, message = "Saved") {
     try {
       await work();
       await client.invalidateQueries({ queryKey: ["crm"] });
@@ -220,10 +204,9 @@ export default function App() {
             <Compass size={27} />
           </span>
           <span>
-            soulsteps<small>TRAVEL WORKSPACE</small>
+            soulsteps<small>CRM</small>
           </span>
         </Link>
-        <div className="workspace-label">YOUR WORKSPACE</div>
         <nav>
           {nav
             .filter(
@@ -240,22 +223,10 @@ export default function App() {
               >
                 <n.icon size={19} />
                 {n.label}
-                {n.to === "/" && <span className="nav-dot" />}
-                {n.to === "/overview" && <span className="nav-small">M</span>}
               </NavLink>
             ))}
         </nav>
         <div className="sidebar-bottom">
-          <div className="manual-card">
-            <MessageCircle size={20} />
-            <strong>
-              Human conversations.
-              <br />
-              One organised workspace.
-            </strong>
-            <p>WhatsApp stays in your phone app. Log your activity here.</p>
-            <span>MANUAL MODE</span>
-          </div>
           <div className="profile">
             <span className="avatar">DS</span>
             <div>
@@ -301,26 +272,21 @@ export default function App() {
             {mobile ? <X /> : <Menu />}
           </button>
           <span className="breadcrumb">
-            Workspace <ChevronRight size={14} />{" "}
-            <strong>Travel operations</strong>
+            <strong>Soulsteps CRM</strong>
           </span>
           <div className="topbar-right">
             <span className="demo-pill">
               <i />
-              {me.data?.local ? "Local demo · D1" : "Staff workspace"}
+              {me.data?.local ? "Demo mode" : "Staff workspace"}
             </span>
             <span className="timezone">Asia / Dubai</span>
-            <span className="avatar small-avatar">DS</span>
           </div>
         </header>
-        <div className="demo-banner">
-          <Sparkles size={14} />
-          <span>
-            {me.data?.local
-              ? "Fictional local dataset · Saved in D1 · No customer messages sent"
-              : "Private staff workspace · Manual WhatsApp mode"}
-          </span>
-        </div>
+        {me.data?.local && (
+          <div className="demo-banner">
+            Demo data · No customer messages sent
+          </div>
+        )}
         <main>
           {error && (
             <div role="alert" className="error-banner">
@@ -477,11 +443,6 @@ export default function App() {
             </Context.Provider>
           )}
         </main>
-        <footer>
-          Soulsteps CRM{" "}
-          <span>Thoughtful journeys start with thoughtful follow-ups.</span>
-          <span>Release preparation · v0.6</span>
-        </footer>
       </div>
       {toast && (
         <div role="status" className="toast">
@@ -560,17 +521,7 @@ function Today({ onCreate }: { onCreate: () => void }) {
           ).map((e) => ({ e, t: nextTask(e) }));
   return (
     <>
-      <Heading
-        eyebrow={now.toLocaleDateString("en-GB", {
-          timeZone: "Asia/Dubai",
-          weekday: "long",
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        })}
-        title="A little follow-up. A big next step."
-        subtitle="Your day, organised around the travellers who need you."
-      >
+      <Heading title="Today">
         <Button onClick={onCreate}>
           <Plus size={17} />
           New enquiry
@@ -581,31 +532,30 @@ function Today({ onCreate }: { onCreate: () => void }) {
         <Stat
           label="Overdue actions"
           value={overdue.length.toString().padStart(2, "0")}
-          foot="Start with the oldest commitment"
+          foot=""
           accent="warning"
         />
         <Stat
           label="Scheduled next"
           value={upcoming.length.toString().padStart(2, "0")}
-          foot="Accepted times · Dubai timezone"
+          foot="Dubai time"
         />
         <Stat
-          label="Ready for the next step"
+          label="Ready to book"
           value={ready.length.toString().padStart(2, "0")}
           foot="Hot interest or deposit verified"
         />
         <Stat
-          label="Missing a next action"
+          label="Needs follow-up"
           value={actionless.length.toString().padStart(2, "0")}
-          foot="Open enquiries to review"
+          foot=""
         />
       </div>
       <div className="today-grid">
         <section className="panel queue-panel">
           <div className="section-head">
             <div>
-              <span className="eyebrow">MAKE IT COUNT</span>
-              <h2>Your action queue</h2>
+              <h2>Follow-ups</h2>
             </div>
             <span className="subtle">
               <Clock3 size={14} />
@@ -683,22 +633,6 @@ function Today({ onCreate }: { onCreate: () => void }) {
           </Link>
         </section>
         <aside className="today-aside">
-          <div className="focus-card">
-            <span className="eyebrow">A MOMENT OF FOCUS</span>
-            <Compass size={40} strokeWidth={1} />
-            <h2>
-              Every journey starts
-              <br />
-              with a conversation.
-            </h2>
-            <p>
-              Close the loop on promised calls before moving on to new
-              prospects.
-            </p>
-            <div>
-              <CheckCircle2 size={17} /> Commitments before priority
-            </div>
-          </div>
           <div className="panel compact">
             <div className="section-head">
               <h3>Needs your attention</h3>
@@ -723,18 +657,6 @@ function Today({ onCreate }: { onCreate: () => void }) {
             ))}
             <p className="micro">
               Requested callbacks are not accepted appointments.
-            </p>
-          </div>
-          <div className="draft-note">
-            <ShieldCheck size={20} />
-            <p>
-              <strong>
-                {data.trips.some((t) => t.activeRuleVersion)
-                  ? "Reviewed trip-fit versions"
-                  : "Trip-fit rules are draft"}
-              </strong>
-              Unresolved visa and group cases stay in Needs qualification.
-              Manual overrides are preserved.
             </p>
           </div>
         </aside>
@@ -786,11 +708,7 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
     );
   return (
     <>
-      <Heading
-        eyebrow="RELATIONSHIPS, NOT ROWS"
-        title="Enquiries"
-        subtitle="Keep the whole journey in view, from first hello to confirmed booking."
-      >
+      <Heading title="Enquiries">
         <Button onClick={onCreate}>
           <Plus size={17} />
           New enquiry
@@ -1204,7 +1122,7 @@ function Detail() {
           <Button
             variant="outline"
             disabled={!manualWhatsAppUrl(e.phone)}
-            title="Manual shortcut only; fictional samples have no full phone"
+            title="Open WhatsApp manually; a full phone number is required"
             onClick={() => {
               const url = manualWhatsAppUrl(e.phone);
               if (url) window.open(url, "_blank", "noopener,noreferrer");
@@ -1265,7 +1183,7 @@ function Detail() {
               {tab === "overview" && (
                 <>
                   <div className="section-head">
-                    <h2>The traveller, at a glance</h2>
+                    <h2>Customer details</h2>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -1607,7 +1525,6 @@ function Detail() {
         </div>
         <aside className="detail-aside">
           <section className="panel compact">
-            <div className="eyebrow">KEEP IT MOVING</div>
             <h3>Enquiry controls</h3>
             <label>
               Sales stage
@@ -1657,9 +1574,7 @@ function Detail() {
           <div className="draft-note">
             <MessageCircle size={20} />
             <p>
-              <strong>WhatsApp is manual</strong>No full phone number is
-              supplied in the fictional samples. Opening WhatsApp never logs a
-              sent message.
+              <strong>Manual WhatsApp</strong>Log sent messages in activity.
             </p>
           </div>
         </aside>
@@ -1983,11 +1898,7 @@ function Trips() {
   const [publishing, setPublishing] = useState<Trip | null>(null);
   return (
     <>
-      <Heading
-        eyebrow="THE JOURNEYS YOU CREATE"
-        title="Trips"
-        subtitle="Keep approved content, commercial terms and trip-fit rules together."
-      >
+      <Heading title="Trips">
         {role === "manager" && (
           <Button onClick={() => setNewTrip(true)}>
             <Plus size={16} />
@@ -2112,8 +2023,7 @@ function Trips() {
           <div className="draft-note">
             <ShieldCheck size={21} />
             <p>
-              <strong>Existing quotes stay intact</strong>Trip edits never
-              change amounts or terms already offered to a traveller.
+              <strong>Existing quotes are unchanged by trip edits.</strong>
             </p>
           </div>
         </div>
@@ -2281,11 +2191,7 @@ function Bookings() {
   const bookings = data.enquiries.filter((e) => e.booking);
   return (
     <>
-      <Heading
-        eyebrow="FROM PLANS TO PROMISES"
-        title="Bookings"
-        subtitle="Explicitly confirmed journeys, with the financial picture kept clear."
-      />
+      <Heading title="Bookings" />
       <div className="stats three">
         <Stat
           label="Confirmed bookings"
@@ -2423,11 +2329,7 @@ function Overview() {
     return <Empty title="Report unavailable" text={permission.error.message} />;
   return (
     <>
-      <Heading
-        eyebrow="MANAGER OVERVIEW"
-        title="See the journey behind the numbers."
-        subtitle="Recorded activity, clear date bases, and the gaps worth your attention."
-      >
+      <Heading title="Overview">
         <select
           aria-label="Reporting period"
           value={period}
@@ -2492,7 +2394,7 @@ function Overview() {
         </section>
         <section className="panel">
           <div className="section-head">
-            <h2>Attention, before acquisition</h2>
+            <h2>Needs attention</h2>
             <ListTodo size={20} />
           </div>
           <div className="manager-alert">

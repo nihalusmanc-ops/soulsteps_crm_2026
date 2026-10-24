@@ -4,7 +4,7 @@ test("daily flow, preserved history, financial confirmation and reload", async (
 }) => {
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "A little follow-up. A big next step." }),
+    page.getByRole("heading", { name: "Today", exact: true }),
   ).toBeVisible();
   await page.goto("/enquiries/DEMO-02");
   await page.getByRole("button", { name: "Log call", exact: true }).click();

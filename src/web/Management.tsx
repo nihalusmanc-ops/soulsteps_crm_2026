@@ -57,12 +57,7 @@ export function Management() {
     <>
       <div className="page-heading">
         <div>
-          <div className="eyebrow">MANAGER WORKSPACE</div>
-          <h1>Keep the little things reliable.</h1>
-          <p>
-            In-app follow-ups, reviewed settings and a clear record of every
-            change.
-          </p>
+          <h1>Settings</h1>
         </div>
         <Button
           disabled={busy}
