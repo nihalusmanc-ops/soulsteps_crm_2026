@@ -347,7 +347,7 @@ export default function App() {
         )}
         <Link to="/" className="brand">
           <span className="brand-mark">
-            <Compass size={27} />
+            <img src="/brand/soulsteps-mark.svg" width="36" height="32" alt="" />
           </span>
           <span>
             soulsteps<small>CRM</small>

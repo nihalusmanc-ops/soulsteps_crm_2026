@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { ArrowRight, Compass, Eye, EyeOff, LockKeyhole } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, LockKeyhole } from "lucide-react";
 import { Button } from "./components/ui/button";
 import "./login.css";
 
@@ -39,7 +39,7 @@ export function LoginPage({
     <div className="login-page">
       <aside className="login-brand-panel" aria-label="Soulsteps">
         <div className="login-wordmark">
-          <Compass size={30} strokeWidth={1.7} />
+          <img src="/brand/soulsteps-mark.svg" width="40" height="35" alt="" />
           <span>
             soulsteps<small>CRM</small>
           </span>
@@ -63,7 +63,7 @@ export function LoginPage({
       </aside>
       <main className="login-main" id="main-content">
         <div className="login-mobile-brand">
-          <Compass size={25} />
+          <img src="/brand/soulsteps-mark.svg" width="34" height="30" alt="" />
           <strong>soulsteps</strong>
         </div>
         <section className="login-form-panel" aria-labelledby="login-title">
