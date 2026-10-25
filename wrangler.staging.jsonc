@@ -21,7 +21,7 @@
     "PUBLIC_APP_URL": "https://soulsteps-crm-staging.nihalusmanc.workers.dev",
     "ACCESS_TEAM_DOMAIN": "mute-hall-89cf.cloudflareaccess.com",
     "ACCESS_AUDIENCE": "1292b38fe6b8955997216c85cb7ef35b04b60858a1cf7e80d0fbad6caddfe995",
-    "AUTH_MODE": "access"
+    "AUTH_MODE": "password"
   },
   "d1_databases": [
     {
