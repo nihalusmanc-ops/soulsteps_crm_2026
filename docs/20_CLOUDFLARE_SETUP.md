@@ -2,7 +2,7 @@
 
 Start with staging. The application configuration exists in `wrangler.staging.jsonc`; production is separate in `wrangler.jsonc`. Nothing has been provisioned or deployed by this guide.
 
-Update: initial staging database/queue provisioning has now been performed during assisted account setup. See [actual setup progress](21_CLOUDFLARE_SETUP_PROGRESS.md) before running any creation commands below again. DNS, R2, Access and deployment are still pending.
+Update, 25 October: staging database, queues and private R2 bucket exist. The owner supplied an Access application audience and temporary Workers hostname; `wrangler.staging.jsonc` now targets that hostname. See [actual setup progress](21_CLOUDFLARE_SETUP_PROGRESS.md) before running any creation commands below again. The original custom-domain instructions below describe the later domain cutover. Actual login/provider/identity verification and deployment remain pending.
 
 ## 1. Sign in and select the account
 
@@ -64,7 +64,7 @@ Collect these non-secret configuration values:
 | Owned staging hostname | `routes[0].pattern` |
 | Created staging database UUID | `d1_databases[0].database_id` |
 
-Keep `__LOCAL_DEV__` false, `APP_ENV` staging, workers.dev/preview URLs disabled and Meta activation false. No Meta secret is required for initial staging setup. Do not copy `.env.example`'s local APP_ENV into nonlocal secret storage.
+Keep `__LOCAL_DEV__` false, `APP_ENV` staging, preview URLs disabled and Meta activation false. For custom-domain operation, disable workers.dev. For temporary staging, enable only the exact Access-protected workers.dev origin with empty custom-domain routes, as configured now. No Meta secret is required for initial staging setup. Do not copy `.env.example`'s local APP_ENV into nonlocal secret storage.
 
 An Access login and a CRM invitation are two separate checks. The CRM requires an active database user with the exact verified Access subject and email; selecting Allow in Access alone does not grant manager access. We will prepare the first manager binding through a private, reviewed operator step after actual Access identity verification. Do not paste the Access cookie/JWT into chat or enable the demo bypass to bootstrap an account. The existing `users:invite:local` command cannot invite remote users.
 

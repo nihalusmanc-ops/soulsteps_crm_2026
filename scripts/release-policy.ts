@@ -41,6 +41,32 @@ export function inspectRelease(
   const checks: ReleaseCheck[] = [];
   const add = (id: string, passed: boolean, message: string) =>
     checks.push({ id, passed, message });
+  let originURL: URL | undefined;
+  try {
+    originURL = new URL(config.vars?.PUBLIC_APP_URL);
+  } catch {}
+  const accessConfigured =
+    /^[a-z0-9-]+\.cloudflareaccess\.com$/.test(
+      config.vars?.ACCESS_TEAM_DOMAIN || "",
+    ) &&
+    /^[a-f0-9]{64}$/.test(config.vars?.ACCESS_AUDIENCE || "") &&
+    config.vars.ACCESS_AUDIENCE !== other.vars?.ACCESS_AUDIENCE;
+  // A temporary staging origin is permitted only as the single intended hostname.
+  // The actual Access policy/login must still satisfy the accessAndInvites evidence gate.
+  const temporaryStaging =
+    environment === "staging" &&
+    config.vars?.APP_ENV === "staging" &&
+    config.workers_dev === true &&
+    originURL?.origin === config.vars?.PUBLIC_APP_URL &&
+    originURL?.protocol === "https:" &&
+    !originURL?.username &&
+    !originURL?.password &&
+    !!config.name &&
+    originURL?.hostname.startsWith(config.name + ".") &&
+    /^[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev$/.test(originURL?.hostname || "") &&
+    Array.isArray(config.routes) &&
+    config.routes.length === 0 &&
+    accessConfigured;
   add(
     "identity-mode",
     config.define?.__LOCAL_DEV__ === "false" &&
@@ -49,8 +75,9 @@ export function inspectRelease(
   );
   add(
     "alternate-domains",
-    config.workers_dev === false && config.preview_urls === false,
-    "workers.dev and version preview URLs must be disabled.",
+    (config.workers_dev === false || temporaryStaging) &&
+      config.preview_urls === false,
+    "Disable alternate URLs; only an exact Access-configured staging workers.dev origin is permitted. Version previews stay disabled.",
   );
   add(
     "routing",
@@ -118,12 +145,13 @@ export function inspectRelease(
   } catch {}
   add(
     "custom-domain",
-    !!domain &&
-      config.routes?.some(
-        (route: Record<string, unknown>) =>
-          route.custom_domain === true && route.pattern === domain,
-      ),
-    "Declare the exact custom domain matching the staff origin.",
+    temporaryStaging ||
+      (!!domain &&
+        config.routes?.some(
+          (route: Record<string, unknown>) =>
+            route.custom_domain === true && route.pattern === domain,
+        )),
+    "Declare the exact custom domain or the single protected temporary staging origin.",
   );
   add(
     "observability",
@@ -187,11 +215,7 @@ export function inspectRelease(
   );
   add(
     "access-config",
-    /^[a-z0-9-]+\.cloudflareaccess\.com$/.test(
-      config.vars?.ACCESS_TEAM_DOMAIN || "",
-    ) &&
-      !!config.vars?.ACCESS_AUDIENCE &&
-      config.vars.ACCESS_AUDIENCE !== other.vars?.ACCESS_AUDIENCE,
+    accessConfigured,
     "Configure Access team domain and a distinct application audience.",
   );
   const parsed = releaseEvidenceSchema.safeParse(evidence);

@@ -20,6 +20,59 @@ const evidence = () => ({
   ),
 });
 describe("release evidence cannot turn demo configuration into an approved deployment", () => {
+  it("permits one Access-configured temporary staging hostname while still requiring release evidence", () => {
+    const temporary = structuredClone(staging);
+    temporary.workers_dev = true;
+    temporary.preview_urls = false;
+    temporary.routes = [];
+    temporary.vars.PUBLIC_APP_URL = `https://${temporary.name}.example.workers.dev`;
+    temporary.vars.ACCESS_TEAM_DOMAIN = "example.cloudflareaccess.com";
+    temporary.vars.ACCESS_AUDIENCE = "c".repeat(64);
+    const checks = inspectRelease(
+      temporary,
+      production,
+      "staging",
+      null,
+      commit,
+    );
+    expect(checks.find((c) => c.id === "alternate-domains")?.passed).toBe(true);
+    expect(checks.find((c) => c.id === "custom-domain")?.passed).toBe(true);
+    expect(checks.find((c) => c.id === "evidence-schema")?.passed).toBe(false);
+  });
+  it("rejects temporary hostnames with missing Access, mismatched Worker name, extra routes or public previews", () => {
+    const temporary = structuredClone(staging);
+    temporary.workers_dev = true;
+    temporary.preview_urls = false;
+    temporary.routes = [];
+    temporary.vars.PUBLIC_APP_URL = `https://${temporary.name}.example.workers.dev`;
+    temporary.vars.ACCESS_TEAM_DOMAIN = "example.cloudflareaccess.com";
+    temporary.vars.ACCESS_AUDIENCE = "c".repeat(64);
+    for (const change of [
+      (c: typeof temporary) => {
+        c.vars.ACCESS_AUDIENCE = "";
+      },
+      (c: typeof temporary) => {
+        c.vars.PUBLIC_APP_URL = "https://other-worker.example.workers.dev";
+      },
+      (c: typeof temporary) => {
+        c.vars.PUBLIC_APP_URL += "/unprotected";
+      },
+      (c: typeof temporary) => {
+        c.routes = [{ custom_domain: true, pattern: "other.example.com" }];
+      },
+      (c: typeof temporary) => {
+        c.preview_urls = true;
+      },
+    ]) {
+      const bad = structuredClone(temporary);
+      change(bad);
+      expect(
+        inspectRelease(bad, production, "staging", null, commit, true).find(
+          (c) => c.id === "alternate-domains",
+        )?.passed,
+      ).toBe(false);
+    }
+  });
   it("accepts safe isolated templates while blocking those templates as actual release config", () => {
     const placeholder = structuredClone(production);
     placeholder.vars.PUBLIC_APP_URL = "https://unconfigured.invalid";
