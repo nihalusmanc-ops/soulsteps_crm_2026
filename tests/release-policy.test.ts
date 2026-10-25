@@ -69,6 +69,7 @@ describe("release evidence cannot turn demo configuration into an approved deplo
   });
   it("permits one Access-configured temporary staging hostname while still requiring release evidence", () => {
     const temporary = structuredClone(staging);
+    temporary.vars.AUTH_MODE = "access";
     temporary.workers_dev = true;
     temporary.preview_urls = false;
     temporary.routes = [];
@@ -88,6 +89,7 @@ describe("release evidence cannot turn demo configuration into an approved deplo
   });
   it("rejects temporary hostnames with missing Access, mismatched Worker name, extra routes or public previews", () => {
     const temporary = structuredClone(staging);
+    temporary.vars.AUTH_MODE = "access";
     temporary.workers_dev = true;
     temporary.preview_urls = false;
     temporary.routes = [];
