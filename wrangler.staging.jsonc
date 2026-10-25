@@ -15,6 +15,7 @@
   },
   "vars": {
     "APP_ENV": "staging",
+    "DEPLOYMENT_PLAN": "workers-free",
     "BUSINESS_TIMEZONE": "Asia/Dubai",
     "META_LIVE_INTAKE_ENABLED": "false",
     "PUBLIC_APP_URL": "https://soulsteps-crm-staging.nihalusmanc.workers.dev",
@@ -61,9 +62,6 @@
     ]
   },
   "preview_urls": false,
-  "limits": {
-    "cpu_ms": 1000
-  },
   "observability": {
     "enabled": true,
     "redact_query_string": true,

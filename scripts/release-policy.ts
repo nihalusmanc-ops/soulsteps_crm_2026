@@ -162,10 +162,13 @@ export function inspectRelease(
   );
   add(
     "cpu-budget",
-    Number.isFinite(config.limits?.cpu_ms) &&
-      config.limits.cpu_ms > 0 &&
-      config.limits.cpu_ms <= 1000,
-    "Proposed CPU limit at most 1,000 ms; account support and workload must be reviewed.",
+    (environment === "staging" &&
+      config.vars?.DEPLOYMENT_PLAN === "workers-free" &&
+      config.limits === undefined) ||
+      (Number.isFinite(config.limits?.cpu_ms) &&
+        config.limits.cpu_ms > 0 &&
+        config.limits.cpu_ms <= 1000),
+    "Use an explicit CPU cap at most 1,000 ms, or the platform-enforced Free limit for explicitly configured staging. Plan support and workload require verification.",
   );
   add(
     "cron",

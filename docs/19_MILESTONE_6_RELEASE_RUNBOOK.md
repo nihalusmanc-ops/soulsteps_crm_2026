@@ -70,7 +70,7 @@ No production content, actual prices/deposits, P3/P6 interpretation, consent, av
 
 ## Platform monitoring and budget setup
 
-The templates propose 1,000 ms maximum CPU per invocation, five-minute Cron and 10% custom-log sampling. Confirm the selected plan supports those settings and that representative workloads fit before release. These are proposed engineering defaults, not an approved subscription or a total spending cap. Automatic invocation logs are disabled and query strings redacted to avoid logging webhook verify tokens. Traces remain disabled. Ordinary application errors use request IDs and sanitised messages.
+Production proposes 1,000 ms maximum CPU per invocation. Staging uses the platform-enforced Workers Free limit, with no custom CPU limit, after Cloudflare rejected that setting on the Free plan. Both configure five-minute Cron and 10% custom-log sampling. Confirm representative workloads fit before release; any paid upgrade needs the owner's separate decision. These are engineering defaults, not an approved subscription or a total spending cap. Automatic invocation logs are disabled and query strings redacted to avoid logging webhook verify tokens. Traces remain disabled. Ordinary application errors use request IDs and sanitised messages.
 
 The owner/operator should configure and verify:
 
@@ -88,6 +88,8 @@ The owner/operator should configure and verify:
 Cloudflare budget alerts notify when account-wide usage-based spend crosses a threshold; **they do not pause or cap usage**. Plan/account eligibility and actual dashboard delivery must be checked. No alert recipient or notification was configured here. CRM counts in Release readiness are not Cloudflare usage/cost measurements. The state API currently hydrates all records in the permitted scope; validate representative team/data scale and watch D1 reads before large migration. Indexes improve lookups but also add indexed writes.
 
 ## Staging, migration and release sequence
+
+Initial empty staging login commissioning is described in [the commissioning record](24_STAGING_COMMISSIONING.md). It establishes the hostname-based login before the first subject-bound invitation and does not mark M6 acceptance gates approved. Production release remains subject to the full gates below.
 
 All external changes below require the owner's concrete approved release scope and credentials. They were not executed in this milestone.
 

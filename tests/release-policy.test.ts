@@ -20,6 +20,28 @@ const evidence = () => ({
   ),
 });
 describe("release evidence cannot turn demo configuration into an approved deployment", () => {
+  it("allows the Free platform CPU limit only for explicit staging configuration", () => {
+    const free = structuredClone(staging);
+    free.vars.DEPLOYMENT_PLAN = "workers-free";
+    delete free.limits;
+    expect(
+      inspectRelease(free, production, "staging", null, commit, true).find(
+        (c) => c.id === "cpu-budget",
+      )?.passed,
+    ).toBe(true);
+    delete free.vars.DEPLOYMENT_PLAN;
+    expect(
+      inspectRelease(free, production, "staging", null, commit, true).find(
+        (c) => c.id === "cpu-budget",
+      )?.passed,
+    ).toBe(false);
+    free.vars.DEPLOYMENT_PLAN = "workers-free";
+    expect(
+      inspectRelease(free, staging, "production", null, commit, true).find(
+        (c) => c.id === "cpu-budget",
+      )?.passed,
+    ).toBe(false);
+  });
   it("permits one Access-configured temporary staging hostname while still requiring release evidence", () => {
     const temporary = structuredClone(staging);
     temporary.workers_dev = true;
