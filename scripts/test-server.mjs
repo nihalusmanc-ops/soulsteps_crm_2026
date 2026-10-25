@@ -6,6 +6,10 @@ const scratch = resolve(process.env.SOULSTEPS_TEST_STORAGE || ".wrangler");
 mkdirSync(scratch, { recursive: true });
 const persist = mkdtempSync(resolve(scratch, "e2e-"));
 const cli = "node_modules/wrangler/bin/wrangler.js";
+const config =
+  process.env.SOULSTEPS_PASSWORD_TEST === "1"
+    ? "wrangler.password-test.jsonc"
+    : "wrangler.test.jsonc";
 const port = process.env.SOULSTEPS_TEST_PORT || "8791";
 if (!["8791", "8794"].includes(port))
   throw new Error("Only isolated test ports 8791 or 8794 are supported.");
@@ -31,11 +35,13 @@ await run([
   "DB",
   "--local",
   "--config",
-  "wrangler.test.jsonc",
+  config,
   "--persist-to",
   persist,
 ]);
 await run(["--import", "tsx", "scripts/seed.ts", persist]);
+if (process.env.SOULSTEPS_PASSWORD_TEST === "1")
+  await run(["--import", "tsx", "scripts/seed-password-test.ts", persist]);
 const worker = spawn(
   process.execPath,
   [
@@ -43,7 +49,7 @@ const worker = spawn(
     "dev",
     "--local",
     "--config",
-    "wrangler.test.jsonc",
+    config,
     "--ip",
     "127.0.0.1",
     "--port",

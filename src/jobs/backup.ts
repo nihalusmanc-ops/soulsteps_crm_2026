@@ -2,6 +2,7 @@ import type { Bindings } from "../server/types";
 import { digest } from "../server/request";
 export const backupTables = [
   "users",
+  "auth_credentials",
   "customers",
   "trips",
   "workspace_settings",

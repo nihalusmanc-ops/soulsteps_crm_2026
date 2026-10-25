@@ -1,0 +1,232 @@
+.login-page {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(300px, 42%) 1fr;
+  background: #fff;
+}
+.login-brand-panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: #153e3c;
+  color: #fff;
+  padding: 48px clamp(30px, 5vw, 80px);
+}
+.login-wordmark {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 31px;
+  letter-spacing: -1.3px;
+  font-weight: 650;
+}
+.login-wordmark > svg {
+  color: #b4d6cd;
+}
+.login-wordmark small {
+  font-size: 10px;
+  letter-spacing: 2.5px;
+  color: #b4d6cd;
+}
+.login-brand-copy {
+  padding: 80px 0;
+}
+.login-kicker {
+  font-size: 11px;
+  letter-spacing: 1.6px;
+  color: #b4d6cd;
+}
+.login-brand-copy h2 {
+  margin: 20px 0;
+  font-size: clamp(30px, 3vw, 44px);
+  line-height: 1.22;
+  letter-spacing: -1px;
+  font-weight: 600;
+}
+.login-brand-copy p {
+  color: #c4dcd6;
+  font-size: 15px;
+  line-height: 1.8;
+}
+.login-brand-footer {
+  font-size: 12px;
+  color: #b4d6cd;
+}
+.login-main {
+  min-width: 0;
+  max-width: none;
+  min-height: 100dvh;
+  margin: 0;
+  padding: 48px 32px 24px;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  justify-content: center;
+  position: relative;
+}
+.login-form-panel {
+  width: 100%;
+  max-width: 380px;
+  margin: auto;
+  padding: 40px 0;
+}
+.login-lock {
+  width: 48px;
+  height: 48px;
+  background: #edf5f2;
+  color: #17655d;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 28px;
+}
+.login-form-panel h1 {
+  font-size: 29px;
+  letter-spacing: -0.7px;
+}
+.login-description {
+  font-size: 14px;
+  color: #596b6c;
+  margin-top: 10px;
+}
+.login-form-panel form {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 32px;
+}
+.login-form-panel label {
+  font-size: 13px;
+  color: #203637;
+  margin: 20px 0 8px;
+}
+.login-form-panel label:first-child {
+  margin-top: 0;
+}
+.login-form-panel input {
+  width: 100%;
+  min-height: 48px;
+  font-size: 15px;
+  border-radius: 8px;
+}
+.login-form-panel input[readonly] {
+  background: #f6f8f8;
+}
+.login-password {
+  position: relative;
+}
+.login-password input {
+  padding-right: 50px;
+}
+.login-password button {
+  position: absolute;
+  right: 2px;
+  top: 2px;
+  min-width: 44px;
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #596b6c;
+}
+.login-password button:hover {
+  color: #17655d;
+  background: #edf5f2;
+}
+.login-form-panel form > .button {
+  min-height: 48px;
+  width: 100%;
+  margin-top: 24px;
+  font-size: 14px;
+}
+.login-form-panel form > .button.ghost {
+  margin-top: 8px;
+}
+.login-help {
+  color: #596b6c;
+  font-size: 12px;
+  margin-top: 28px;
+  line-height: 1.8;
+}
+.login-error {
+  border: 1px solid #edc6bf;
+  background: #fff5f2;
+  color: #9c352b;
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 13px;
+  margin-top: 24px;
+}
+.login-footer {
+  display: block;
+  color: #596b6c;
+  font-size: 12px;
+  border: 0;
+  padding: 16px;
+}
+.login-mobile-brand {
+  display: none;
+}
+.account-security {
+  padding: 28px;
+  max-width: 540px;
+}
+.account-security > svg {
+  color: var(--teal);
+  margin-bottom: 16px;
+}
+.account-security h2 {
+  margin-bottom: 10px;
+}
+.account-security form {
+  margin-top: 24px;
+}
+.account-security .info-note,
+.account-security .error-banner {
+  margin-top: 20px;
+}
+.account-link {
+  color: #d0e4df;
+  background: transparent;
+  border: 0;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 10px 14px;
+  font-size: 13px;
+  border-radius: 6px;
+}
+.account-link:hover {
+  background: #244f4b;
+}
+@media (max-width: 760px) {
+  .login-page {
+    grid-template-columns: 1fr;
+  }
+  .login-brand-panel {
+    display: none;
+  }
+  .login-main {
+    padding: 28px 24px 16px;
+    align-items: stretch;
+  }
+  .login-mobile-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #153e3c;
+    font-size: 26px;
+    letter-spacing: -1px;
+  }
+  .login-form-panel {
+    padding: 48px 0;
+  }
+  .login-form-panel input {
+    font-size: 16px;
+  }
+  .login-footer {
+    text-align: center;
+  }
+}

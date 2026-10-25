@@ -46,3 +46,5 @@ No WhatsApp provider subscription is needed to start building. A local mock inte
 Use React/TypeScript/Vite, Hono/TypeScript, Workers, D1/Drizzle, R2, Queues/Cron, Cloudflare Access, GitHub/Workers Builds. Do not replace them with Next.js, FastAPI, Supabase, or Railway without an explicit scope change.
 Norway P3/P4 and family/group wording overlap in the original discussion. The proposed resolution and safe handling are recorded in document 03. Staff must confirm the rule preview before production automatic ranking.
 Real customer data and the source workbook are intentionally not bundled. `samples/demo_enquiries.json` contains fictional examples only.
+
+The owner subsequently selected a custom Soulsteps email/password login. See [custom login and transition](docs/25_CUSTOM_LOGIN.md) for its configuration, security defaults and rollout. Existing Access mode remains available during password setup.

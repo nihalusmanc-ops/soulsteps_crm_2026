@@ -86,6 +86,9 @@ if (!("meta_forms" in snapshot.tables) && !("meta_leads" in snapshot.tables)) {
   snapshot.tables.meta_forms = [];
   snapshot.tables.meta_leads = [];
 }
+// Older snapshots predate password credentials; recovered staff must set passwords again.
+if (!("auth_credentials" in snapshot.tables))
+  snapshot.tables.auth_credentials = [];
 if (backupTables.some((table) => !Array.isArray(snapshot.tables[table])))
   throw new Error("Backup is missing required tables.");
 mkdirSync(".wrangler", { recursive: true });

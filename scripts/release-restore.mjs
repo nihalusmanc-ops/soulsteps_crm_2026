@@ -59,6 +59,9 @@ try {
     await new Promise((r) => setTimeout(r, 100));
   }
   if (!up) throw new Error("Isolated fixture Worker did not start.");
+  await post("/auth/password", {
+    password: "Fictional restore passphrase 2026!",
+  });
   const bytes = Buffer.from(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6Ff8AAAAASUVORK5CYII=",
     "base64",
@@ -106,6 +109,10 @@ try {
   delete report.destination;
   if (
     report.receiptCopies !== 2 ||
+    !report.tables.some(
+      (table) =>
+        table.table_name === "auth_credentials" && table.row_count === 1,
+    ) ||
     report.importSources < 1 ||
     report.metaSources < 1 ||
     !report.checksHeld ||

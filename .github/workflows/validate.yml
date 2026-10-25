@@ -28,6 +28,7 @@ jobs:
       - run: npm test
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+      - run: npm run test:password:e2e
       - run: npm run release:templates
       - run: npm run release:bundle
       - run: npm run release:verify-auth

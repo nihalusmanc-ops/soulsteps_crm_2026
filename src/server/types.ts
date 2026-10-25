@@ -8,6 +8,9 @@ export type Bindings = {
   PUBLIC_APP_URL?: string;
   ACCESS_TEAM_DOMAIN?: string;
   ACCESS_AUDIENCE?: string;
+  AUTH_MODE?: "access" | "password";
+  PASSWORD_HASHER?: DurableObjectNamespace;
+  PASSWORD_AUTH_SECRET?: string;
   META_APP_SECRET?: string;
   META_VERIFY_TOKEN?: string;
   META_PAGE_ID?: string;

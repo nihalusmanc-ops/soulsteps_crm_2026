@@ -16,7 +16,9 @@
   "vars": {
     "APP_ENV": "local",
     "BUSINESS_TIMEZONE": "Asia/Dubai",
-    "META_LIVE_INTAKE_ENABLED": "false"
+    "META_LIVE_INTAKE_ENABLED": "false",
+    "AUTH_MODE": "access",
+    "PASSWORD_AUTH_SECRET": "fictional-isolated-test-secret-never-deploy"
   },
   "d1_databases": [
     {
@@ -56,5 +58,24 @@
         "dead_letter_queue": "soulsteps-test-dead-letters"
       }
     ]
-  }
+  },
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "PASSWORD_HASHER",
+        "class_name": "PasswordHasher"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1-password-hasher",
+      "new_sqlite_classes": [
+        "PasswordHasher"
+      ]
+    }
+  ]
 }

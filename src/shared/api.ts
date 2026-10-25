@@ -7,6 +7,7 @@ export type Identity = {
   name: string;
   role: "staff" | "manager";
   local: boolean;
+  authMethod?: "local" | "access" | "password";
 };
 export type StoredFile = {
   id: string;

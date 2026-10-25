@@ -6,6 +6,8 @@ import {
   useViewParam,
 } from "./components/ui/workspace";
 import { Management, RuleManager, PublishTrip } from "./Management";
+import { LoginPage } from "./LoginPage";
+import { AccountSecurity } from "./AccountSecurity";
 import { DueReminders } from "./DueReminders";
 import { useWorkspace, management } from "./data/management";
 import { Settings as SettingsIcon } from "lucide-react";
@@ -174,7 +176,14 @@ function Stat({
   );
 }
 export default function App() {
+  const loginOptions = useQuery({
+    queryKey: ["auth-options"],
+    queryFn: session.options,
+    retry: false,
+  });
   const me = useQuery({ queryKey: ["me"], queryFn: session.me, retry: false });
+  const [loginBusy, setLoginBusy] = useState(false),
+    [loginError, setLoginError] = useState("");
   const query = useQuery({
     queryKey: ["crm", me.data?.id],
     queryFn: () => repository.read(),
@@ -198,8 +207,21 @@ export default function App() {
         : location.pathname.startsWith(n.to),
     )?.label || "Workspace";
   useEffect(() => {
-    document.title = currentPage + " | Soulsteps CRM";
-  }, [currentPage]);
+    document.title =
+      (loginOptions.data?.method === "password" && (me.isError || !me.data)
+        ? "Sign in"
+        : location.pathname === "/account/security"
+          ? "Account security"
+          : currentPage) + " | Soulsteps CRM";
+    if (loginOptions.data?.method === "password" && me.isError)
+      setMobile(false);
+  }, [
+    currentPage,
+    location.pathname,
+    loginOptions.data?.method,
+    me.isError,
+    me.data?.id,
+  ]);
   useEffect(() => {
     if (!mobile) return;
     const previousOverflow = document.body.style.overflow;
@@ -256,6 +278,42 @@ export default function App() {
       await client.invalidateQueries({ queryKey: ["crm"] });
       return false;
     }
+  }
+  if (loginOptions.data?.method === "password" && (me.isError || !me.data)) {
+    if (me.isPending) return <LoadingWorkspace />;
+    return (
+      <LoginPage
+        method="password"
+        busy={loginBusy}
+        error={loginError}
+        onSubmit={async (fields) => {
+          setLoginBusy(true);
+          setLoginError("");
+          try {
+            const identity = await session.login(fields.email, fields.password);
+            client.removeQueries({
+              predicate: (q) =>
+                !["me", "auth-options"].includes(String(q.queryKey[0])),
+            });
+            client.setQueryData(["me"], identity);
+            navigate(
+              location.pathname === "/login"
+                ? "/"
+                : location.pathname + location.search,
+              { replace: true },
+            );
+          } catch (error) {
+            setLoginError(
+              error instanceof Error
+                ? error.message
+                : "Sign-in could not be completed. Please try again.",
+            );
+          } finally {
+            setLoginBusy(false);
+          }
+        }}
+      />
+    );
   }
   return (
     <div className="app">
@@ -315,6 +373,38 @@ export default function App() {
             ))}
         </nav>
         <div className="sidebar-bottom">
+          {me.data && (
+            <Link
+              className="account-link"
+              to="/account/security"
+              onClick={() => setMobile(false)}
+            >
+              Account security
+            </Link>
+          )}
+          {me.data?.authMethod === "password" && (
+            <button
+              className="account-link"
+              onClick={async () => {
+                try {
+                  await session.logout();
+                  client.removeQueries({
+                    predicate: (q) => q.queryKey[0] !== "auth-options",
+                  });
+                  navigate("/");
+                  await me.refetch();
+                } catch (error) {
+                  setError(
+                    error instanceof Error
+                      ? error.message
+                      : "Could not sign out. Try again.",
+                  );
+                }
+              }}
+            >
+              Sign out
+            </button>
+          )}
           <div className="profile">
             <span className="avatar">DS</span>
             <div>
@@ -407,6 +497,7 @@ export default function App() {
           ) : (
             <Context.Provider value={{ data: query.data, run, role, error }}>
               <Routes>
+                <Route path="/account/security" element={<AccountSecurity />} />
                 <Route
                   path="/settings"
                   element={

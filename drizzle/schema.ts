@@ -22,6 +22,40 @@ export const users = sqliteTable(
   },
   (t) => [check("valid_role", sql`${t.role} IN ('staff','manager')`)],
 );
+export const authCredentials = sqliteTable("auth_credentials", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => users.id),
+  salt: text("salt").notNull(),
+  hash: text("hash").notNull(),
+  version: integer("version").notNull().default(1),
+  updatedAt: text("updated_at").notNull(),
+});
+export const authSessions = sqliteTable(
+  "auth_sessions",
+  {
+    tokenHash: text("token_hash").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id),
+    credentialVersion: integer("credential_version").notNull(),
+    createdAt: text("created_at").notNull(),
+    expiresAt: text("expires_at").notNull(),
+  },
+  (t) => [
+    index("auth_session_user").on(t.userId),
+    index("auth_session_expiry").on(t.expiresAt),
+  ],
+);
+export const authThrottle = sqliteTable(
+  "auth_throttle",
+  {
+    bucket: text("bucket").primaryKey(),
+    count: integer("count").notNull(),
+    expiresAt: text("expires_at").notNull(),
+  },
+  (t) => [index("auth_throttle_expiry").on(t.expiresAt)],
+);
 export const customers = sqliteTable(
   "customers",
   {

@@ -6,6 +6,7 @@ for (const environment of ["staging", "production"]) {
       modules: true,
       scriptPath: resolve(`.wrangler/release/${environment}/index.js`),
       compatibilityDate: "2026-10-01",
+      compatibilityFlags: ["nodejs_compat"],
       bindings: {
         APP_ENV: "local",
         ACCESS_TEAM_DOMAIN: "soulsteps-security-test.cloudflareaccess.com",

@@ -3,6 +3,7 @@ import { getCookie } from "hono/cookie";
 import type { Context, MiddlewareHandler } from "hono";
 import { ApiError } from "./errors";
 import type { AppEnv, Bindings } from "./types";
+import { passwordIdentity } from "./password-auth";
 
 declare const __LOCAL_DEV__: boolean;
 const keys = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
@@ -10,6 +11,7 @@ export function localFixtureAllowed(url: string, env: Bindings) {
   return (
     typeof __LOCAL_DEV__ !== "undefined" &&
     __LOCAL_DEV__ &&
+    env.AUTH_MODE !== "password" &&
     env.APP_ENV === "local" &&
     ["127.0.0.1", "localhost", "[::1]"].includes(new URL(url).hostname)
   );
@@ -56,6 +58,17 @@ export async function validateAccessToken(
   }
 }
 export const authenticate: MiddlewareHandler<AppEnv> = async (c, next) => {
+  if (c.env.AUTH_MODE === "password") {
+    c.set("identity", await passwordIdentity(c));
+    await next();
+    return;
+  }
+  if (c.env.AUTH_MODE && c.env.AUTH_MODE !== "access")
+    throw new ApiError(
+      503,
+      "AUTH_NOT_CONFIGURED",
+      "Sign-in is temporarily unavailable.",
+    );
   let id: string | undefined;
   if (localFixtureAllowed(c.req.url, c.env)) {
     const role =
@@ -104,7 +117,11 @@ export const authenticate: MiddlewareHandler<AppEnv> = async (c, next) => {
       "NOT_INVITED",
       "This identity is not an active invited staff member.",
     );
-  c.set("identity", { ...user, local: localFixtureAllowed(c.req.url, c.env) });
+  c.set("identity", {
+    ...user,
+    local: localFixtureAllowed(c.req.url, c.env),
+    authMethod: localFixtureAllowed(c.req.url, c.env) ? "local" : "access",
+  });
   await next();
 };
 export function requireManager(c: Context<AppEnv>) {

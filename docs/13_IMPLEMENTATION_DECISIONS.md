@@ -2,22 +2,22 @@
 
 Date: 23 October 2026. These entries are proposed implementation defaults, not approvals of business policy.
 
-| Decision | Checkpoint implementation | Production decision still needed |
-|---|---|---|
-| Branding | Calm teal navigation, light neutral surfaces, text wordmark, abstract CSS landscape | Brand kit if desired |
-| Ambiguous Norway ranking | Family/friends with all visas, mixed visas and unknown answers show Needs qualification | P3 vs P6; visa policy; group normalisation |
-| Buying interest | Staff-controlled hot/warm/cold/unassessed; independent of fit and stage | Confirm definitions |
-| Today ordering | Oldest due first; separate new/unassessed; unscheduled prospecting ordered interest, fit, oldest contact | Approve operational sorting and working hours |
-| Timezone | Asia/Dubai; datetime-local values explicitly parsed with +04:00 | Customer timezone / callback scheduling policy |
-| Money | Integer AED minor units; fictional quote snapshots only | Real prices, deposit terms, balance dates, overpayment/zero-deposit/refund policy |
-| Confirmation | Explicit staff action after sufficient verified deposit; no inventory promise | Live availability/terms and cancellation policy |
-| Contacts | No full phone numbers in fixtures; manual shortcut disabled for missing/partial numbers | Approved contact data and permission evidence |
-| Staff/manager | Clearly labelled demo preview switch; backend private routes disabled | Invited identities, team visibility, Access audience/domain |
-| Persistence | Browser-local repository behind typed interface for M1 | M2 D1 persistence, security, concurrency and file policy |
-| Quote editing | Issued snapshots immutable; no correction-version UI at M1 | M2 versioned quote amendment workflow |
-| Trip content | Draft/no price; edits remain draft; rule preview does not activate | Actual itinerary, FAQs, dates, prices, deposit terms and policy approval |
-| Integrations | No live state, credentials, sends, subscriptions or inbox | Import source/mapping, Excel connector, Meta assets; WhatsApp Coexistence in Phase 2 |
-| Retention | No real records accepted for this checkpoint | Privacy, retention/export and authorised data lifecycle |
+| Decision                 | Checkpoint implementation                                                                                | Production decision still needed                                                     |
+| ------------------------ | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Branding                 | Calm teal navigation, light neutral surfaces, text wordmark, abstract CSS landscape                      | Brand kit if desired                                                                 |
+| Ambiguous Norway ranking | Family/friends with all visas, mixed visas and unknown answers show Needs qualification                  | P3 vs P6; visa policy; group normalisation                                           |
+| Buying interest          | Staff-controlled hot/warm/cold/unassessed; independent of fit and stage                                  | Confirm definitions                                                                  |
+| Today ordering           | Oldest due first; separate new/unassessed; unscheduled prospecting ordered interest, fit, oldest contact | Approve operational sorting and working hours                                        |
+| Timezone                 | Asia/Dubai; datetime-local values explicitly parsed with +04:00                                          | Customer timezone / callback scheduling policy                                       |
+| Money                    | Integer AED minor units; fictional quote snapshots only                                                  | Real prices, deposit terms, balance dates, overpayment/zero-deposit/refund policy    |
+| Confirmation             | Explicit staff action after sufficient verified deposit; no inventory promise                            | Live availability/terms and cancellation policy                                      |
+| Contacts                 | No full phone numbers in fixtures; manual shortcut disabled for missing/partial numbers                  | Approved contact data and permission evidence                                        |
+| Staff/manager            | Clearly labelled demo preview switch; backend private routes disabled                                    | Invited identities, team visibility, Access audience/domain                          |
+| Persistence              | Browser-local repository behind typed interface for M1                                                   | M2 D1 persistence, security, concurrency and file policy                             |
+| Quote editing            | Issued snapshots immutable; no correction-version UI at M1                                               | M2 versioned quote amendment workflow                                                |
+| Trip content             | Draft/no price; edits remain draft; rule preview does not activate                                       | Actual itinerary, FAQs, dates, prices, deposit terms and policy approval             |
+| Integrations             | No live state, credentials, sends, subscriptions or inbox                                                | Import source/mapping, Excel connector, Meta assets; WhatsApp Coexistence in Phase 2 |
+| Retention                | No real records accepted for this checkpoint                                                             | Privacy, retention/export and authorised data lifecycle                              |
 
 Missing content and credentials do not block the independent M2–M4 engineering work. Production ranking and communications remain gated on the relevant decisions, not on guessed defaults.
 
@@ -41,6 +41,7 @@ Missing content and credentials do not block the independent M2–M4 engineering
 - Manual-use trip content can be published without fabricating missing dates, prices or itinerary. Price/itinerary automation remains disabled; accepted quotes retain original snapshots.
 - Private daily/on-demand backups include consistent operational tables and checkpointed receipt copies. The local restore drill passed all 22 table-count and two receipt-hash checks; restored checks are held until explicit review. Retention/automatic cleanup remains an owner decision; no objects are automatically deleted.
 - Reconciliation reports missing/unlinked receipt objects with an upload grace period. Production Access/identities/resource provisioning, live monitoring and release checks remain pending. M4 historical import preview is next; no live data, messages, deployment or purchase occurred.
+
 # M4 preview checkpoint
 
 Proposed implementation default: start with an explicitly versioned synthetic JSON preprocessing contract, not a guessed mapping for an unavailable workbook. Server validates string cells and preserves raw positions/styles; review-only preview has no database side effects. Mapping is not approved for real form IDs. Missing original data does not block the remaining batch persistence and transactional commit work. See docs/16_IMPORT_PREVIEW_CHECKPOINT.md for scope and remaining M4 requirements.
@@ -71,3 +72,7 @@ Proposed implementation default: start with an explicitly versioned synthetic JS
 - Proposed nonlocal operational defaults: CPU limit 1,000 ms, five-minute Cron, 10% custom-log sampling, query redaction, no automatic invocation logs or traces. Account/plan/workload support, spending thresholds and recipients still require owner review; alerts are not spending caps.
 - Static CSP/frame/privacy headers and Worker response headers were verified in browser tests. Additive customer/enquiry and task/enquiry indexes were verified with actual query plans. No applied migration was edited.
 - Validation-only CI uses pinned actions/read-only permissions, compiled nonlocal auth checks and an isolated 26-table restore with synthetic files/import/Meta evidence. No hosted CI, branch protection, billing alert, remote migration, data cutover or external messaging was performed. See docs/19_MILESTONE_6_RELEASE_RUNBOOK.md for the remaining live acceptance gates and rollback plan.
+
+## 25 October 2026: custom sign-in
+
+Owner selected Soulsteps email and password instead of the provider-hosted login. Implemented invite-only native authentication as an explicit AUTH_MODE option; existing Access checks remain intact in Access mode. See [custom login](25_CUSTOM_LOGIN.md) for the private password setup bridge, security defaults, rollback and remaining staff onboarding/recovery work.

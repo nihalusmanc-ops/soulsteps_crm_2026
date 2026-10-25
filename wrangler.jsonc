@@ -19,7 +19,8 @@
     "META_LIVE_INTAKE_ENABLED": "false",
     "PUBLIC_APP_URL": "https://crm.thesoulsteps.com",
     "ACCESS_TEAM_DOMAIN": "",
-    "ACCESS_AUDIENCE": ""
+    "ACCESS_AUDIENCE": "",
+    "AUTH_MODE": "access"
   },
   "d1_databases": [
     {
@@ -82,5 +83,24 @@
       "custom_domain": true
     }
   ],
-  "account_id": "242a0210bb9d13956b9a1eff3a9fb5d1"
+  "account_id": "242a0210bb9d13956b9a1eff3a9fb5d1",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "PASSWORD_HASHER",
+        "class_name": "PasswordHasher"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1-password-hasher",
+      "new_sqlite_classes": [
+        "PasswordHasher"
+      ]
+    }
+  ]
 }

@@ -20,7 +20,8 @@
     "META_LIVE_INTAKE_ENABLED": "false",
     "PUBLIC_APP_URL": "https://soulsteps-crm-staging.nihalusmanc.workers.dev",
     "ACCESS_TEAM_DOMAIN": "mute-hall-89cf.cloudflareaccess.com",
-    "ACCESS_AUDIENCE": "1292b38fe6b8955997216c85cb7ef35b04b60858a1cf7e80d0fbad6caddfe995"
+    "ACCESS_AUDIENCE": "1292b38fe6b8955997216c85cb7ef35b04b60858a1cf7e80d0fbad6caddfe995",
+    "AUTH_MODE": "access"
   },
   "d1_databases": [
     {
@@ -75,5 +76,24 @@
     }
   },
   "routes": [],
-  "account_id": "242a0210bb9d13956b9a1eff3a9fb5d1"
+  "account_id": "242a0210bb9d13956b9a1eff3a9fb5d1",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "PASSWORD_HASHER",
+        "class_name": "PasswordHasher"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1-password-hasher",
+      "new_sqlite_classes": [
+        "PasswordHasher"
+      ]
+    }
+  ]
 }

@@ -51,6 +51,15 @@ export function inspectRelease(
     ) &&
     /^[a-f0-9]{64}$/.test(config.vars?.ACCESS_AUDIENCE || "") &&
     config.vars.ACCESS_AUDIENCE !== other.vars?.ACCESS_AUDIENCE;
+  const passwordConfigured = !!(
+    config.vars?.AUTH_MODE === "password" &&
+    config.compatibility_flags?.includes("nodejs_compat") &&
+    config.durable_objects?.bindings?.some(
+      (b: Record<string, unknown>) =>
+        b.name === "PASSWORD_HASHER" && b.class_name === "PasswordHasher",
+    ) &&
+    !config.vars?.PASSWORD_AUTH_SECRET
+  );
   // A temporary staging origin is permitted only as the single intended hostname.
   // The actual Access policy/login must still satisfy the accessAndInvites evidence gate.
   const temporaryStaging =
@@ -66,11 +75,14 @@ export function inspectRelease(
     /^[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev$/.test(originURL?.hostname || "") &&
     Array.isArray(config.routes) &&
     config.routes.length === 0 &&
-    accessConfigured;
+    (config.vars?.AUTH_MODE === "password"
+      ? passwordConfigured
+      : accessConfigured);
   add(
     "identity-mode",
     config.define?.__LOCAL_DEV__ === "false" &&
-      config.vars?.APP_ENV === environment,
+      config.vars?.APP_ENV === environment &&
+      [undefined, "access", "password"].includes(config.vars?.AUTH_MODE),
     "Nonlocal build and correct environment required.",
   );
   add(
@@ -218,8 +230,10 @@ export function inspectRelease(
   );
   add(
     "access-config",
-    accessConfigured,
-    "Configure Access team domain and a distinct application audience.",
+    config.vars?.AUTH_MODE === "password"
+      ? passwordConfigured
+      : accessConfigured,
+    "Configure cryptographically verified Access or the invited-user password service. Password secrets must use secret storage; verify actual login/invitations externally.",
   );
   const parsed = releaseEvidenceSchema.safeParse(evidence);
   add(

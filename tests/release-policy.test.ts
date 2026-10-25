@@ -20,6 +20,31 @@ const evidence = () => ({
   ),
 });
 describe("release evidence cannot turn demo configuration into an approved deployment", () => {
+  it("validates password authentication without relying on Access and rejects incomplete password configuration", () => {
+    const native = structuredClone(staging);
+    native.vars.AUTH_MODE = "password";
+    native.vars.ACCESS_TEAM_DOMAIN = "";
+    native.vars.ACCESS_AUDIENCE = "";
+    expect(
+      inspectRelease(native, production, "staging", null, commit).find(
+        (c) => c.id === "access-config",
+      )?.passed,
+    ).toBe(true);
+    const missing = structuredClone(native);
+    delete missing.durable_objects;
+    expect(
+      inspectRelease(missing, production, "staging", null, commit).find(
+        (c) => c.id === "access-config",
+      )?.passed,
+    ).toBe(false);
+    const exposed = structuredClone(native);
+    exposed.vars.PASSWORD_AUTH_SECRET = "must-not-be-in-vars";
+    expect(
+      inspectRelease(exposed, production, "staging", null, commit).find(
+        (c) => c.id === "access-config",
+      )?.passed,
+    ).toBe(false);
+  });
   it("allows the Free platform CPU limit only for explicit staging configuration", () => {
     const free = structuredClone(staging);
     free.vars.DEPLOYMENT_PLAN = "workers-free";

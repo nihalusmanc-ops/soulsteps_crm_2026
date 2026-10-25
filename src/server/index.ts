@@ -2,6 +2,8 @@ import { managementRoutes } from "./management";
 import { importRoutes } from "./imports";
 import { metaPublic, metaRoutes } from "./meta";
 import { releaseRoutes } from "./release";
+import { passwordPublic, passwordAccount } from "./password-auth";
+export { PasswordHasher } from "./password-hasher";
 import { sweep, consume, type JobMessage } from "../jobs/service";
 import type { Bindings } from "./types";
 import { Hono } from "hono";
@@ -87,6 +89,8 @@ app.get("/api/health", (c) =>
   }),
 );
 app.route("/webhooks/meta", metaPublic);
+app.use("/api/auth/*", sameOrigin);
+app.route("/api/auth", passwordPublic);
 app.use(
   "/api/*",
   sameOrigin,
@@ -101,6 +105,7 @@ app.use(
   }),
 );
 app.get("/api/me", (c) => c.json(c.get("identity")));
+app.route("/api/auth", passwordAccount);
 app.post("/api/local/session", async (c) => {
   if (!localFixtureAllowed(c.req.url, c.env))
     throw new ApiError(404, "NOT_FOUND", "Not found.");

@@ -1,6 +1,7 @@
 ﻿import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests/browser",
+  testIgnore: "**/password-login.spec.ts",
   use: {
     baseURL: "http://127.0.0.1:8791",
     channel: process.env.CI ? undefined : "msedge",
