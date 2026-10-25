@@ -13,6 +13,8 @@ The owner supplied `crm.thesoulsteps.com` and completed Wrangler OAuth sign-in. 
 
 ## Current external prerequisites
 
+Current status, after the owner's saved-application screenshot: the empty staging CRM is deployed at `https://soulsteps-crm-staging.nihalusmanc.workers.dev`. The homepage and protected API routes redirect unauthenticated requests to the configured Access team. See [the staging commissioning record](24_STAGING_COMMISSIONING.md) for the version, Free-plan adjustment and remaining first-manager login/invitation check. Earlier no-deployment statements below are historical. Production, custom-domain DNS and live customer intake remain untouched.
+
 Update, 25 October: the owner supplied the first manager email. It is recorded privately in ignored `.wrangler/staging-manager.json`, pending verified Cloudflare Access identity binding; no invitation, login email or active database identity has been created from an unverified subject. Staff can be added later.
 
 Staging can use an Access-protected `workers.dev` address before connecting the custom domain. GoDaddy access is therefore not a prerequisite for temporary hosting. The current custom-domain staging configuration still needs a temporary-host adjustment, Access setup and storage readiness before deployment. Domain cutover remains deferred.

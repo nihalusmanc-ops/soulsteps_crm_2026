@@ -19,3 +19,9 @@ Validation before retry: six release-policy tests, TypeScript checking and struc
 - Owner completes the one-time PIN flow in their own browser; no OTP, password or authorization cookie is pasted into chat.
 - Bind the exact verified Access subject and email to the designated manager through a reviewed operator action; retain role and audit evidence.
 - Verify the manager can open the empty CRM and ordinary uninvited identities cannot. Only then proceed to staged synthetic workflow acceptance and the full release gates.
+
+## First deployed version
+
+Published source commit `d8a6810` to staging only. Cloudflare returned version `d5320221-d3db-428a-862f-0764617a8da0` and the expected temporary hostname, five-minute Cron, staging queue producer and consumer. No subscription/plan upgrade was accepted. The initial upload rejected for custom CPU limits had uploaded static assets but did not activate a Worker version; the subsequent corrected upload succeeded.
+
+Unauthenticated GET requests to `/`, `/api/me` and `/api/state` returned HTTP 302 to `mute-hall-89cf.cloudflareaccess.com`. This establishes edge login protection on the actual deployed hostname. Manager subject binding and the signed-in CRM workflow remain pending the owner's first login. Staging D1 had zero active users and enquiries at deployment; no database fixtures or real customer data were copied.
