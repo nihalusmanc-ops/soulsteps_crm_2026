@@ -1299,3 +1299,7 @@ a.manager-alert:hover {
     grid-column: 1/-1;
   }
 }
+
+/* Original Soulsteps artwork includes both lettering and swoosh. */
+.sidebar .brand { margin: 0 0 24px; }
+.brand-full-logo { display: block; width: 100%; height: auto; }

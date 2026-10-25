@@ -345,13 +345,8 @@ export default function App() {
             <X size={20} />
           </button>
         )}
-        <Link to="/" className="brand">
-          <span className="brand-mark">
-            <img src="/brand/soulsteps-mark.svg" width="36" height="32" alt="" />
-          </span>
-          <span>
-            soulsteps<small>CRM</small>
-          </span>
+        <Link to="/" className="brand" aria-label="Soulsteps home">
+          <img className="brand-full-logo" src="/brand/soulsteps-logo.png" width="1536" height="946" alt="Soulsteps" />
         </Link>
         <nav aria-label="Main navigation">
           {nav
