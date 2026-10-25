@@ -13,6 +13,10 @@ The owner supplied `crm.thesoulsteps.com` and completed Wrangler OAuth sign-in. 
 
 ## Current external prerequisites
 
+Update, 25 October: the owner supplied the first manager email. It is recorded privately in ignored `.wrangler/staging-manager.json`, pending verified Cloudflare Access identity binding; no invitation, login email or active database identity has been created from an unverified subject. Staff can be added later.
+
+Staging can use an Access-protected `workers.dev` address before connecting the custom domain. GoDaddy access is therefore not a prerequisite for temporary hosting. The current custom-domain staging configuration still needs a temporary-host adjustment, Access setup and storage readiness before deployment. Domain cutover remains deferred.
+
 The owner confirmed that domain management is in GoDaddy, but access is currently unavailable. At the owner's request, domain connection and DNS cutover are deferred until access is restored. Continue building and reviewing locally; neither a custom domain nor R2 activation is required for local development. Existing staging resources remain provisioned but no hosted CRM has been deployed.
 
 The Cloudflare account has no zone for `thesoulsteps.com`. Public DNS currently reports `ns07.domaincontrol.com` and `ns08.domaincontrol.com`; registrar/authoritative DNS dashboard ownership still needs confirmation. Hostinger may be the website host rather than the active DNS provider. The public MX currently points to `smtp.google.com` (priority 1); this and the full existing website/email/DKIM/SPF/DMARC records must be preserved during any future DNS move. Public DNS lookups cannot replace a complete zone export/review.
