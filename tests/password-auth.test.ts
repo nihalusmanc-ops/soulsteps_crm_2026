@@ -245,4 +245,27 @@ describe("Soulsteps password authentication", () => {
     expect((await login()).response.status).toBe(503);
     expect((await get("/me")).status).toBe(503);
   });
+  it("returns a safe service error when hosted password derivation fails", async () => {
+    env.PASSWORD_HASHER = {
+      idFromName: () => ({}),
+      get: () => ({
+        fetch: () => {
+          throw new Error("sensitive-runtime-detail");
+        },
+      }),
+    } as unknown as DurableObjectNamespace;
+    const response = await post("/auth/login", {
+      email: "manager@example.invalid",
+      password,
+    });
+    expect(response.status).toBe(503);
+    const body = await response.text();
+    expect(body).toContain("AUTH_UNAVAILABLE");
+    expect(body).not.toContain("sensitive-runtime-detail");
+    expect(body).not.toContain(password);
+    const result = await env.DB.prepare(
+      "SELECT count(*) AS n FROM auth_sessions",
+    ).first<{ n: number }>();
+    expect(result?.n).toBe(0);
+  });
 });

@@ -1,4 +1,6 @@
-import { pbkdf2Sync, timingSafeEqual } from "node:crypto";
+import { timingSafeEqual } from "node:crypto";
+import { pbkdf2 } from "@noble/hashes/pbkdf2.js";
+import { sha256 } from "@noble/hashes/sha2.js";
 import { Buffer } from "node:buffer";
 import { z } from "zod";
 
@@ -30,19 +32,20 @@ export class PasswordHasher {
     } catch {
       return new Response(null, { status: 400 });
     }
-    const derived = pbkdf2Sync(
+    // Hosted Workers cap native PBKDF2 iterations even inside Durable Objects.
+    // Use the portable implementation with the identical algorithm/work factor.
+    const derived = pbkdf2(
+      sha256,
       value.password,
       Buffer.from(value.salt, "hex"),
-      PASSWORD_ITERATIONS,
-      32,
-      "sha256",
+      { c: PASSWORD_ITERATIONS, dkLen: 32 },
     );
     return Response.json(
       value.expected
         ? {
             valid: timingSafeEqual(derived, Buffer.from(value.expected, "hex")),
           }
-        : { hash: derived.toString("hex") },
+        : { hash: Buffer.from(derived).toString("hex") },
     );
   }
 }

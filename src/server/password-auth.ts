@@ -63,10 +63,25 @@ async function kdf(
   const stub = env.PASSWORD_HASHER!.get(
     env.PASSWORD_HASHER!.idFromName("passwords-v1"),
   );
-  const result = await stub.fetch("https://password-hasher.internal/", {
-    method: "POST",
-    body: JSON.stringify({ password, salt, ...(expected ? { expected } : {}) }),
-  });
+  let result: Response;
+  try {
+    result = await stub.fetch("https://password-hasher.internal/", {
+      method: "POST",
+      body: JSON.stringify({
+        password,
+        salt,
+        ...(expected ? { expected } : {}),
+      }),
+    });
+  } catch {
+    // Never log the request or runtime exception: it may contain credential data.
+    console.error("Password derivation service unavailable");
+    throw new ApiError(
+      503,
+      "AUTH_UNAVAILABLE",
+      "Password service is temporarily unavailable. Please try again shortly.",
+    );
+  }
   if (!result.ok)
     throw new ApiError(
       503,
