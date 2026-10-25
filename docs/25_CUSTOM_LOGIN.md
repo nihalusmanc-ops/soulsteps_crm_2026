@@ -44,3 +44,13 @@ On 25 October, 80 unit/integration tests, 24 existing-workflow browser tests and
 Staging source `059dd5b` was deployed as version `bda5c4d4-91c6-44ad-94d2-acae30f448d5`, with migration 0012 and a privately provisioned authentication secret. `AUTH_MODE=access` remains intentional. Anonymous root, account security and business API requests still redirect to the intended Access team. Remote counts show one active manager, zero manager credentials awaiting private setup, and zero enquiries. Native sign-in activation and removal of the edge login interception remain pending the owner's password setup. Production was not deployed.
 
 References: [OWASP password storage](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html), [Durable Object limits](https://developers.cloudflare.com/durable-objects/platform/limits/), [Workers Node crypto](https://developers.cloudflare.com/workers/runtime-apis/nodejs/crypto/).
+
+## Hosted password setup correction — 25 October 2026
+
+The owner reported a generic error when saving the initial password. A temporary bearer-protected diagnostic Worker invoked the staging password object with fixed fictional inputs, without creating users, credentials or sessions. The original deployed implementation reproduced the native iteration-limit exception. Runtime tail evidence also contained the iteration-limit error; no credential/request data was printed.
+
+Replaced native PBKDF2 with pinned `@noble/hashes` 2.4.0 inside the existing Durable Object. Retained PBKDF2-HMAC-SHA256, 600,000 iterations, salt size and digest format. Node-generated fixtures continue to verify compatibility. Password service invocation failures now return a safe 503 instead of the unrelated request-key error. No password policy, invitation or role checks were relaxed.
+
+Nine authentication integration tests, three real-runtime login browser tests and type checking/build passed. Deployed source `8bc46cf` as staging version `720d4a1a-c2ce-40a7-b6bd-96d766346e81`. The same hosted diagnostic then returned HTTP 200 and a digest matching Node's reference, in approximately 2.6 seconds including network/object startup. Anonymous `/api/me` still redirects to the intended Access team. Owner password setup and native login activation remain pending; production remains unchanged. The temporary diagnostic Worker is removed after verification.
+
+The production native limit is documented in [Cloudflare's runtime issue](https://github.com/cloudflare/workerd/issues/1346); [the Node crypto implementation](https://github.com/cloudflare/workerd/blob/main/src/workerd/api/node/crypto.c%2B%2B) applies the same PBKDF limit check. [Noble hashes](https://github.com/paulmillr/noble-hashes) supplies the portable implementation.
