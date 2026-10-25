@@ -1,8 +1,10 @@
 import { spawn } from "node:child_process";
 import { mkdtempSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
-mkdirSync(".wrangler", { recursive: true });
-const persist = mkdtempSync(resolve(".wrangler/e2e-"));
+// Optional scratch drive for machines with limited space on the workspace drive.
+const scratch = resolve(process.env.SOULSTEPS_TEST_STORAGE || ".wrangler");
+mkdirSync(scratch, { recursive: true });
+const persist = mkdtempSync(resolve(scratch, "e2e-"));
 const cli = "node_modules/wrangler/bin/wrangler.js";
 const port = process.env.SOULSTEPS_TEST_PORT || "8791";
 if (!["8791", "8794"].includes(port))

@@ -300,7 +300,7 @@ test("manager screens edit defaults and explicitly review a rule preview", async
 }) => {
   await page.goto("/settings");
   await expect(
-    page.getByRole("heading", { name: "Keep the little things reliable." }),
+    page.getByRole("heading", { name: "Settings", exact: true }),
   ).toBeVisible();
   await page
     .getByRole("button", { name: "Workspace settings", exact: true })

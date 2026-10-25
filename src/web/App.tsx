@@ -1,3 +1,10 @@
+import {
+  Metric,
+  ViewSwitch,
+  LoadingWorkspace,
+  EmptyState,
+  useViewParam,
+} from "./components/ui/workspace";
 import { Management, RuleManager, PublishTrip } from "./Management";
 import { DueReminders } from "./DueReminders";
 import { useWorkspace, management } from "./data/management";
@@ -5,6 +12,8 @@ import { Settings as SettingsIcon } from "lucide-react";
 import {
   createContext,
   useContext,
+  useEffect,
+  useRef,
   useState,
   type ReactNode,
   type FormEvent,
@@ -15,6 +24,8 @@ import {
   Route,
   Routes,
   useNavigate,
+  useLocation,
+  useSearchParams,
   useParams,
 } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -67,6 +78,7 @@ const Context = createContext<{
   data: State;
   run: (work: () => Promise<unknown>, message?: string) => Promise<boolean>;
   role: string;
+  error: string;
 }>({} as never);
 const useCRM = () => useContext(Context);
 function useStageLabels() {
@@ -102,12 +114,12 @@ function StageBadge({ stage }: { stage: Stage }) {
     <span
       className="badge"
       style={{
-        color: label.color,
+        color: "var(--text)",
         background: "#fff",
         border: `1px solid ${label.color}33`,
       }}
     >
-      <i />
+      <i style={{ background: label.color }} />
       {label.label}
     </span>
   );
@@ -127,11 +139,9 @@ function Empty({
   text?: string;
 }) {
   return (
-    <div className="empty">
-      <CheckCircle2 size={28} />
-      <h3>{title}</h3>
+    <EmptyState title={title}>
       <p>{text}</p>
-    </div>
+    </EmptyState>
   );
 }
 function Heading({ title, children }: { title: string; children?: ReactNode }) {
@@ -178,7 +188,58 @@ export default function App() {
   const [create, setCreate] = useState(false);
   const [existingCustomer, setExistingCustomer] = useState("");
   const navigate = useNavigate();
+  const location = useLocation();
+  const navigationRef = useRef<HTMLElement>(null);
+  const menuRef = useRef<HTMLButtonElement>(null);
+  const currentPage =
+    nav.find((n) =>
+      n.to === "/"
+        ? location.pathname === "/"
+        : location.pathname.startsWith(n.to),
+    )?.label || "Workspace";
+  useEffect(() => {
+    document.title = currentPage + " | Soulsteps CRM";
+  }, [currentPage]);
+  useEffect(() => {
+    if (!mobile) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const focusable = () =>
+      Array.from(
+        navigationRef.current?.querySelectorAll<HTMLElement>(
+          "a[href], button, select",
+        ) || [],
+      );
+    focusable()[0]?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobile(false);
+      if (event.key === "Tab") {
+        const elements = focusable(),
+          first = elements[0],
+          last = elements.at(-1);
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first?.focus();
+        }
+      }
+    };
+    const onResize = () => {
+      if (window.innerWidth > 760) setMobile(false);
+    };
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("resize", onResize);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", onResize);
+      menuRef.current?.focus();
+    };
+  }, [mobile]);
   async function run(work: () => Promise<unknown>, message = "Saved") {
+    setError("");
     try {
       await work();
       await client.invalidateQueries({ queryKey: ["crm"] });
@@ -198,7 +259,34 @@ export default function App() {
   }
   return (
     <div className="app">
-      <aside className={`sidebar ${mobile ? "visible" : ""}`}>
+      <a className="skip-link" href="#main-content">
+        Skip to content
+      </a>
+      {mobile && (
+        <button
+          className="navigation-scrim"
+          aria-label="Close navigation"
+          tabIndex={-1}
+          onClick={() => setMobile(false)}
+        />
+      )}
+      <aside
+        ref={navigationRef}
+        id="workspace-navigation"
+        aria-label="Workspace navigation"
+        role={mobile ? "dialog" : undefined}
+        aria-modal={mobile || undefined}
+        className={`sidebar ${mobile ? "visible" : ""}`}
+      >
+        {mobile && (
+          <button
+            className="icon-button nav-close"
+            aria-label="Close navigation"
+            onClick={() => setMobile(false)}
+          >
+            <X size={20} />
+          </button>
+        )}
         <Link to="/" className="brand">
           <span className="brand-mark">
             <Compass size={27} />
@@ -207,7 +295,7 @@ export default function App() {
             soulsteps<small>CRM</small>
           </span>
         </Link>
-        <nav>
+        <nav aria-label="Main navigation">
           {nav
             .filter(
               (n) =>
@@ -262,17 +350,22 @@ export default function App() {
           </div>
         </div>
       </aside>
-      <div className="main-shell">
+      <div className="main-shell" inert={mobile}>
         <header className="topbar">
           <button
             className="icon-button mobile-menu"
+            ref={menuRef}
+            aria-expanded={mobile}
+            aria-controls="workspace-navigation"
             aria-label="Open navigation"
             onClick={() => setMobile(!mobile)}
           >
             {mobile ? <X /> : <Menu />}
           </button>
           <span className="breadcrumb">
-            <strong>Soulsteps CRM</strong>
+            <span>Workspace</span>
+            <ChevronRight size={14} />
+            <strong>{currentPage}</strong>
           </span>
           <div className="topbar-right">
             <span className="demo-pill">
@@ -287,7 +380,7 @@ export default function App() {
             Demo data · No customer messages sent
           </div>
         )}
-        <main>
+        <main id="main-content" tabIndex={-1}>
           {error && (
             <div role="alert" className="error-banner">
               {error}
@@ -302,10 +395,7 @@ export default function App() {
               <Button onClick={() => me.refetch()}>Retry login</Button>
             </div>
           ) : query.isPending ? (
-            <Empty
-              title="Opening your workspace…"
-              text="Loading CRM records from the database."
-            />
+            <LoadingWorkspace />
           ) : query.isError ? (
             <div className="panel">
               <Empty
@@ -315,7 +405,7 @@ export default function App() {
               <Button onClick={() => query.refetch()}>Try again</Button>
             </div>
           ) : (
-            <Context.Provider value={{ data: query.data, run, role }}>
+            <Context.Provider value={{ data: query.data, run, role, error }}>
               <Routes>
                 <Route
                   path="/settings"
@@ -338,7 +428,10 @@ export default function App() {
                   path="/enquiries"
                   element={<Enquiries onCreate={() => setCreate(true)} />}
                 />
-                <Route path="/enquiries/:id" element={<Detail />} />
+                <Route
+                  path="/enquiries/:id"
+                  element={<Detail key={location.pathname} />}
+                />
                 <Route path="/trips" element={<Trips />} />
                 <Route path="/bookings" element={<Bookings />} />
                 <Route
@@ -454,8 +547,13 @@ export default function App() {
   );
 }
 function Customer({ e }: { e: Enquiry }) {
+  const location = useLocation();
   return (
-    <Link className="customer" to={`/enquiries/${e.id}`}>
+    <Link
+      className="customer"
+      to={`/enquiries/${e.id}`}
+      state={{ from: location.pathname + location.search }}
+    >
       <Avatar name={e.name} />
       <span>
         <strong>{e.name}</strong>
@@ -482,7 +580,7 @@ function Fit({ e }: { e: Enquiry }) {
 }
 function Today({ onCreate }: { onCreate: () => void }) {
   const { data } = useCRM();
-  const [tab, setTab] = useState("overdue");
+  const [tab, setTab] = useViewParam("queue", "overdue");
   const now = new Date();
   const open = data.enquiries.filter(isOpen);
   const tasks = open
@@ -508,16 +606,32 @@ function Today({ onCreate }: { onCreate: () => void }) {
           b.lastContact || b.createdAt,
         ),
     );
+  const deposits = open.filter(
+    (e) =>
+      e.quote?.accepted &&
+      e.quote.deposit &&
+      verifiedTotal(e) < e.quote.deposit,
+  );
+  const departures = data.trips
+    .filter(
+      (t) =>
+        t.departure && t.departure >= dubaiDay() && t.status !== "inactive",
+    )
+    .sort((a, b) => a.departure.localeCompare(b.departure));
   const list =
     tab === "overdue"
       ? overdue
       : tab === "scheduled"
         ? upcoming
-        : (tab === "ready"
-            ? ready
-            : tab === "prospecting"
-              ? prospects
-              : newLeads
+        : (tab === "missing"
+            ? actionless
+            : tab === "deposits"
+              ? deposits
+              : tab === "ready"
+                ? ready
+                : tab === "prospecting"
+                  ? prospects
+                  : newLeads
           ).map((e) => ({ e, t: nextTask(e) }));
   return (
     <>
@@ -527,28 +641,40 @@ function Today({ onCreate }: { onCreate: () => void }) {
           New enquiry
         </Button>
       </Heading>
-      <DueReminders />
+      <p className="page-context">
+        {now.toLocaleDateString("en-GB", {
+          timeZone: "Asia/Dubai",
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+        })}{" "}
+        · Your next actions, in one place
+      </p>
       <div className="stats">
-        <Stat
-          label="Overdue actions"
-          value={overdue.length.toString().padStart(2, "0")}
-          foot=""
-          accent="warning"
+        <Metric
+          label="Overdue follow-ups"
+          value={overdue.length}
+          foot="Review oldest commitments"
+          to="/?queue=overdue"
+          warning
         />
-        <Stat
-          label="Scheduled next"
-          value={upcoming.length.toString().padStart(2, "0")}
-          foot="Dubai time"
+        <Metric
+          label="New / unassessed"
+          value={newLeads.length}
+          foot="Start a conversation"
+          to="/?queue=new"
         />
-        <Stat
-          label="Ready to book"
-          value={ready.length.toString().padStart(2, "0")}
-          foot="Hot interest or deposit verified"
+        <Metric
+          label="Upcoming follow-ups"
+          value={upcoming.length}
+          foot="Scheduled · Dubai time"
+          to="/?queue=scheduled"
         />
-        <Stat
-          label="Needs follow-up"
-          value={actionless.length.toString().padStart(2, "0")}
-          foot=""
+        <Metric
+          label="Outstanding deposits"
+          value={deposits.length}
+          foot="Accepted quotes · funds still needed"
+          to="/?queue=deposits"
         />
       </div>
       <div className="today-grid">
@@ -561,27 +687,47 @@ function Today({ onCreate }: { onCreate: () => void }) {
               <Clock3 size={14} />
               {tab === "prospecting"
                 ? "Interest · fit · oldest contact"
-                : "Due time first"}
+                : ["overdue", "scheduled"].includes(tab)
+                  ? "Due time first"
+                  : "Open enquiries"}
             </span>
           </div>
-          <div className="tabs">
-            {[
-              ["overdue", "Overdue", overdue.length],
-              ["scheduled", "Scheduled", upcoming.length],
-              ["ready", "Ready to book", ready.length],
-              ["new", "New / unassessed", newLeads.length],
-              ["prospecting", "Prospecting", prospects.length],
-            ].map(([id, label, count]) => (
-              <button
-                key={id}
-                className={tab === id ? "active" : ""}
-                onClick={() => setTab(String(id))}
-              >
-                {label}
-                <span>{count}</span>
-              </button>
-            ))}
-          </div>
+          <ViewSwitch
+            label="Action queues"
+            value={tab}
+            onChange={setTab}
+            options={[
+              { value: "overdue", label: "Overdue", count: overdue.length },
+              {
+                value: "scheduled",
+                label: "Scheduled",
+                count: upcoming.length,
+              },
+              {
+                value: "new",
+                label: "New / unassessed",
+                count: newLeads.length,
+              },
+              { value: "ready", label: "Ready to book", count: ready.length },
+              { value: "deposits", label: "Deposits", count: deposits.length },
+              {
+                value: "missing",
+                label: "No next action",
+                count: actionless.length,
+              },
+              {
+                value: "prospecting",
+                label: "Prospecting",
+                count: prospects.length,
+              },
+            ]}
+          />
+          {tab === "ready" && (
+            <p className="queue-explanation">
+              Hot buying interest or a verified deposit. Review the enquiry
+              before confirming.
+            </p>
+          )}
           <div className="queue">
             {list.length ? (
               list.map(({ e, t }) => (
@@ -600,10 +746,12 @@ function Today({ onCreate }: { onCreate: () => void }) {
                   </div>
                   <div className="queue-action">
                     <strong>
-                      {t?.type ||
-                        (e.quote && !confirmationBlock(e)
-                          ? "Confirm booking"
-                          : "Plan the next step")}
+                      {tab === "deposits"
+                        ? `Deposit: ${money(Math.max(0, (e.quote?.deposit || 0) - verifiedTotal(e)))} remaining`
+                        : t?.type ||
+                          (e.quote && !confirmationBlock(e)
+                            ? "Confirm booking"
+                            : "Plan the next step")}
                     </strong>
                     <small
                       className={
@@ -615,7 +763,10 @@ function Today({ onCreate }: { onCreate: () => void }) {
                     <Fit e={e} />
                   </div>
                   <Button asChild variant="outline" size="sm">
-                    <Link to={`/enquiries/${e.id}`}>
+                    <Link
+                      to={`/enquiries/${e.id}`}
+                      state={{ from: "/?queue=" + tab }}
+                    >
                       Open <ArrowRight size={14} />
                     </Link>
                   </Button>
@@ -633,6 +784,7 @@ function Today({ onCreate }: { onCreate: () => void }) {
           </Link>
         </section>
         <aside className="today-aside">
+          <DueReminders />
           <div className="panel compact">
             <div className="section-head">
               <h3>Needs your attention</h3>
@@ -655,10 +807,38 @@ function Today({ onCreate }: { onCreate: () => void }) {
                 <ChevronRight size={17} />
               </Link>
             ))}
-            <p className="micro">
-              Requested callbacks are not accepted appointments.
-            </p>
+            {!actionless.length && (
+              <p className="micro">Every open enquiry has a next action.</p>
+            )}
+            <Link className="panel-link" to="/?queue=missing">
+              View all {actionless.length} <ArrowRight size={15} />
+            </Link>
           </div>
+          <section className="panel compact">
+            <div className="section-head">
+              <h3>Upcoming departures</h3>
+              <CalendarDays size={18} />
+            </div>
+            {departures.length ? (
+              departures.slice(0, 3).map((t) => (
+                <Link className="attention-row" key={t.id} to="/trips">
+                  <span>
+                    <strong>{t.name}</strong>
+                    <small>
+                      {t.departure} ·{" "}
+                      {t.status === "draft" ? "Draft date" : "Published"}
+                    </small>
+                  </span>
+                  <ChevronRight size={16} />
+                </Link>
+              ))
+            ) : (
+              <p className="micro">No upcoming departure dates recorded.</p>
+            )}
+            <Link className="panel-link" to="/trips">
+              View trips <ArrowRight size={15} />
+            </Link>
+          </section>
         </aside>
       </div>
     </>
@@ -667,24 +847,63 @@ function Today({ onCreate }: { onCreate: () => void }) {
 function Enquiries({ onCreate }: { onCreate: () => void }) {
   const stages = useStageLabels();
   const { data } = useCRM();
-  const [q, setQ] = useState("");
-  const [stage, setStage] = useState("");
-  const [temp, setTemp] = useState("");
-  const [rank, setRank] = useState("");
-  const [view, setView] = useState("table");
+  const location = useLocation();
+  const [, setParams] = useSearchParams();
+  const [q, setQ] = useViewParam("q");
+  const [stage, setStage] = useViewParam("stage", "");
+  const [temp, setTemp] = useViewParam("interest", "");
+  const [rank, setRank] = useViewParam("fit", "");
+  const [view, setView] = useViewParam("view", "table");
   const [extra, setExtra] = useState(false);
-  const [visa, setVisa] = useState("");
-  const [group, setGroup] = useState("");
-  const [source, setSource] = useState("");
-  const [missing, setMissing] = useState(false);
-  const [response, setResponse] = useState(false);
-  const [sort, setSort] = useState("created");
+  const [visa, setVisa] = useViewParam("visa", "");
+  const [group, setGroup] = useViewParam("group", "");
+  const [source, setSource] = useViewParam("source", "");
+  const [missingValue, setMissingValue] = useViewParam("missing");
+  const [responseValue, setResponseValue] = useViewParam("response");
+  const missing = missingValue === "1",
+    response = responseValue === "1";
+  const setMissing = (v: boolean) => setMissingValue(v ? "1" : "");
+  const setResponse = (v: boolean) => setResponseValue(v ? "1" : "");
+  const [owner, setOwner] = useViewParam("owner");
+  const [tripFilter, setTripFilter] = useViewParam("trip");
+  const [since] = useViewParam("since");
+  const [paidSince] = useViewParam("paidSince");
+  const [openOnly] = useViewParam("open");
+  const clearFilters = () =>
+    setParams(view === "pipeline" ? { view: "pipeline" } : {}, {
+      replace: true,
+    });
+  const activeFilters = [
+    q,
+    stage,
+    temp,
+    rank,
+    visa,
+    group,
+    source,
+    missing,
+    response,
+    owner,
+    tripFilter,
+    since,
+    paidSince,
+    openOnly,
+  ].filter(Boolean).length;
+  const [sort, setSort] = useViewParam("sort", "created");
   const filtered = data.enquiries
     .filter(
       (e) =>
         `${e.name} ${e.email} ${e.phone || ""}`
           .toLowerCase()
           .includes(q.toLowerCase()) &&
+        (!paidSince ||
+          e.payments.some(
+            (p) => p.status === "verified" && p.date >= paidSince,
+          )) &&
+        (!openOnly || isOpen(e)) &&
+        (!owner || e.owner === owner) &&
+        (!tripFilter || e.tripId === tripFilter) &&
+        (!since || e.createdAt >= since) &&
         (!stage || e.stage === stage) &&
         (!temp || e.temperature === temp) &&
         (!rank || (e.rank || "needs") === rank) &&
@@ -758,13 +977,42 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
             ))}
             <option value="needs">Needs qualification</option>
           </select>
-          <Button variant="outline" onClick={() => setExtra(!extra)}>
+          <Button
+            variant="outline"
+            aria-expanded={extra}
+            aria-controls="enquiry-filters"
+            onClick={() => setExtra(!extra)}
+          >
             <ListFilter size={16} />
-            Filters
+            More filters
           </Button>
         </div>
         {extra && (
-          <div className="extra-filters">
+          <div className="extra-filters" id="enquiry-filters">
+            <select
+              aria-label="Filter owner"
+              value={owner}
+              onChange={(e) => setOwner(e.target.value)}
+            >
+              <option value="">All owners</option>
+              {Array.from(new Set(data.enquiries.map((e) => e.owner))).map(
+                (name) => (
+                  <option key={name}>{name}</option>
+                ),
+              )}
+            </select>
+            <select
+              aria-label="Filter trip"
+              value={tripFilter}
+              onChange={(e) => setTripFilter(e.target.value)}
+            >
+              <option value="">All trips</option>
+              {data.trips.map((t) => (
+                <option value={t.id} key={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
             <select
               aria-label="Filter visa"
               value={visa}
@@ -811,21 +1059,23 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
               />
               Contact flags
             </label>
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setQ("");
-                setStage("");
-                setTemp("");
-                setRank("");
-                setVisa("");
-                setGroup("");
-                setSource("");
-                setMissing(false);
-                setResponse(false);
-              }}
-            >
+            <Button variant="ghost" onClick={clearFilters}>
               Clear filters
+            </Button>
+          </div>
+        )}
+        {activeFilters > 0 && (
+          <div className="filter-summary">
+            <span>
+              {activeFilters} active filter{activeFilters === 1 ? "" : "s"}
+              {owner ? " · " + owner : ""}
+              {tripFilter
+                ? " · " + data.trips.find((t) => t.id === tripFilter)?.name
+                : ""}
+              {missing ? " · No next action" : ""}
+            </span>
+            <Button size="sm" variant="ghost" onClick={clearFilters}>
+              Reset filters
             </Button>
           </div>
         )}
@@ -844,16 +1094,18 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
             >
               <option value="created">Newest first</option>
               <option value="due">Next action first</option>
-              <option value="interest">Interest ? fit ? oldest contact</option>
+              <option value="interest">Interest, fit, oldest contact</option>
             </select>
             <div className="segmented">
               <button
+                aria-pressed={view === "table"}
                 className={view === "table" ? "active" : ""}
                 onClick={() => setView("table")}
               >
                 Table
               </button>
               <button
+                aria-pressed={view === "pipeline"}
                 className={view === "pipeline" ? "active" : ""}
                 onClick={() => setView("pipeline")}
               >
@@ -863,74 +1115,159 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
           </div>
         </div>
         {!filtered.length ? (
-          <Empty />
+          <EmptyState
+            title={activeFilters ? "No matching enquiries" : "No enquiries yet"}
+          >
+            <p>
+              {activeFilters
+                ? "Try a different search or reset the filters."
+                : "Create an enquiry to start tracking a customer."}
+            </p>
+            <Button
+              variant="outline"
+              onClick={activeFilters ? clearFilters : onCreate}
+            >
+              {activeFilters ? "Reset all filters" : "New enquiry"}
+            </Button>
+          </EmptyState>
         ) : view === "table" ? (
-          <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Traveller</th>
-                  <th>Stage</th>
-                  <th>Trip fit / interest</th>
-                  <th>
-                    Next action <ArrowDown size={12} />
-                  </th>
-                  <th>Source</th>
-                  <th>Last contact</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((e) => (
-                  <tr key={e.id}>
-                    <td>
-                      <Customer e={e} />
-                    </td>
-                    <td>
-                      <StageBadge stage={e.stage} />
-                      {e.response !== "none" && (
-                        <small className="contact-flag">
-                          {e.response.replaceAll("_", " ")}
-                        </small>
-                      )}
-                    </td>
-                    <td>
-                      <Fit e={e} />
-                    </td>
-                    <td>
-                      <strong className="cell-title">
+          <>
+            <div className="enquiry-cards">
+              {filtered.map((e) => (
+                <article className="enquiry-mobile-card" key={e.id}>
+                  <div className="mobile-card-head">
+                    <Customer e={e} />
+                    <StageBadge stage={e.stage} />
+                  </div>
+                  <div className="mobile-card-meta">
+                    <span>
+                      {data.trips.find((t) => t.id === e.tripId)?.destination}
+                    </span>
+                    <span>{e.owner}</span>
+                  </div>
+                  <Fit e={e} />
+                  <div className="mobile-card-action">
+                    <span>
+                      <strong>
                         {nextTask(e)?.type ||
-                          (isOpen(e)
-                            ? "Needs next action"
-                            : e.holdReason
-                              ? "Closed / held"
-                              : "Booking confirmed")}
+                          (isOpen(e) ? "Needs next action" : stages[e.stage])}
                       </strong>
-                      <small>
-                        {nextTask(e) ? dateTime(nextTask(e)!.due) : "—"}
-                      </small>
-                    </td>
-                    <td>{e.source}</td>
-                    <td>
-                      {e.lastContact
-                        ? dateTime(e.lastContact)
-                        : "Not contacted"}
-                    </td>
-                    <td>
-                      <Link
-                        aria-label={`Open ${e.name}`}
-                        to={`/enquiries/${e.id}`}
+                      <small
+                        className={
+                          nextTask(e) &&
+                          Date.parse(nextTask(e)!.due) < Date.now()
+                            ? "overdue-text"
+                            : ""
+                        }
                       >
-                        <ChevronRight size={18} />
-                      </Link>
-                    </td>
+                        {nextTask(e)
+                          ? (Date.parse(nextTask(e)!.due) < Date.now()
+                              ? "Overdue · "
+                              : "") + dateTime(nextTask(e)!.due)
+                          : e.response !== "none"
+                            ? e.response.replaceAll("_", " ")
+                            : "No pending task"}
+                      </small>
+                    </span>
+                    <Link
+                      className="button outline small"
+                      to={"/enquiries/" + e.id}
+                      state={{ from: location.pathname + location.search }}
+                      aria-label={"Open " + e.name}
+                    >
+                      Open
+                      <ArrowRight size={15} />
+                    </Link>
+                  </div>
+                </article>
+              ))}
+            </div>
+            <div className="table-scroll enquiries-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Traveller</th>
+                    <th>Stage</th>
+                    <th>Trip fit / interest</th>
+                    <th>
+                      Next action <ArrowDown size={12} />
+                    </th>
+                    <th>Trip / owner</th>
+                    <th>Last contact</th>
+                    <th />
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {filtered.map((e) => (
+                    <tr key={e.id}>
+                      <td>
+                        <Customer e={e} />
+                      </td>
+                      <td>
+                        <StageBadge stage={e.stage} />
+                        {e.response !== "none" && (
+                          <small className="contact-flag">
+                            {e.response.replaceAll("_", " ")}
+                          </small>
+                        )}
+                      </td>
+                      <td>
+                        <Fit e={e} />
+                      </td>
+                      <td>
+                        <strong className="cell-title">
+                          {nextTask(e)?.type ||
+                            (isOpen(e)
+                              ? "Needs next action"
+                              : e.holdReason
+                                ? "Closed / held"
+                                : "Booking confirmed")}
+                        </strong>
+                        <small
+                          className={
+                            nextTask(e) &&
+                            Date.parse(nextTask(e)!.due) < Date.now()
+                              ? "overdue-text"
+                              : ""
+                          }
+                        >
+                          {nextTask(e) &&
+                          Date.parse(nextTask(e)!.due) < Date.now()
+                            ? "Overdue · "
+                            : ""}
+                          {nextTask(e) ? dateTime(nextTask(e)!.due) : "—"}
+                        </small>
+                      </td>
+                      <td>
+                        <strong className="cell-title">
+                          {data.trips.find((t) => t.id === e.tripId)
+                            ?.destination || "Unassigned trip"}
+                        </strong>
+                        <small>{e.owner}</small>
+                      </td>
+                      <td>
+                        {e.lastContact
+                          ? dateTime(e.lastContact)
+                          : "Not contacted"}
+                      </td>
+                      <td>
+                        <Link
+                          state={{ from: location.pathname + location.search }}
+                          className="row-open"
+                          aria-label={`Open ${e.name}`}
+                          to={`/enquiries/${e.id}`}
+                        >
+                          <ChevronRight size={18} />
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         ) : (
-          <div className="pipeline">
+          <div className="pipeline" aria-label="Sales pipeline">
             {Object.entries(stages).map(([key, label]) => (
               <section className="pipeline-column" key={key}>
                 <h3>
@@ -942,6 +1279,7 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
                   .map((e) => (
                     <Link
                       to={`/enquiries/${e.id}`}
+                      state={{ from: location.pathname + location.search }}
                       className="pipeline-card"
                       key={e.id}
                     >
@@ -954,7 +1292,7 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
                       <div>
                         <Clock3 size={13} />
                         {nextTask(e)
-                          ? dateTime(nextTask(e)!.due)
+                          ? `${Date.parse(nextTask(e)!.due) < Date.now() ? "Overdue · " : ""}${dateTime(nextTask(e)!.due)}`
                           : "No next action"}
                       </div>
                     </Link>
@@ -977,9 +1315,11 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
 function Detail() {
   const stages = useStageLabels();
   const { id } = useParams();
-  const { data, run, role } = useCRM();
+  const { data, run, role, error } = useCRM();
   const e = data.enquiries.find((e) => e.id === id);
-  const [tab, setTab] = useState("overview");
+  const [tab, setTab] = useViewParam("tab", "overview");
+  const location = useLocation();
+  const navigate = useNavigate();
   const [action, setAction] = useState("");
   const [paymentId, setPaymentId] = useState("");
   const [taskId, setTaskId] = useState("");
@@ -988,7 +1328,16 @@ function Detail() {
   const trip = data.trips.find((t) => t.id === e.tripId);
   const paid = verifiedTotal(e);
   const block = confirmationBlock(e);
-  const pending = e.tasks.filter((t) => t.status === "pending");
+  const pending = e.tasks
+    .filter((t) => t.status === "pending")
+    .sort((a, b) => a.due.localeCompare(b.due));
+  const next = pending[0];
+  const rescheduling = pending.find((t) => t.id === taskId);
+  const returnTo =
+    typeof location.state?.from === "string" &&
+    ["/", "/enquiries", "/bookings"].includes(location.state.from.split("?")[0])
+      ? location.state.from
+      : "/enquiries";
   async function submit(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     if (!e || busy) return;
@@ -1100,9 +1449,13 @@ function Detail() {
   };
   return (
     <>
-      <Link to="/enquiries" className="back-link">
+      <Link to={returnTo} className="back-link">
         <ArrowLeft size={15} />
-        All enquiries
+        {returnTo.startsWith("/bookings")
+          ? "All bookings"
+          : returnTo.startsWith("/enquiries")
+            ? "All enquiries"
+            : "Today"}
       </Link>
       <div className="detail-heading">
         <div className="detail-person">
@@ -1113,8 +1466,8 @@ function Detail() {
             </div>
             <h1>{e.name}</h1>
             <p>
-              {e.email || "No email recorded"} <span>·</span> Phone not supplied
-              in demo
+              {e.email || "No email recorded"} <span>·</span>{" "}
+              {e.phone || "No phone recorded"}
             </p>
           </div>
         </div>
@@ -1150,9 +1503,7 @@ function Detail() {
           <select
             aria-label="Customer enquiry history"
             value={e.id}
-            onChange={(ev) =>
-              window.location.assign(`/enquiries/${ev.target.value}`)
-            }
+            onChange={(ev) => navigate(`/enquiries/${ev.target.value}`)}
           >
             {data.enquiries
               .filter((other) => other.customerId === e.customerId)
@@ -1165,6 +1516,60 @@ function Detail() {
           </select>
         </label>
       )}
+      <section className="next-step" aria-label="Next action">
+        <span className="next-step-icon">
+          <Clock3 size={21} />
+        </span>
+        <div>
+          <span className="field-label">
+            {e.booking
+              ? "Booking confirmed"
+              : next && Date.parse(next.due) < Date.now()
+                ? "Overdue follow-up"
+                : "Next action"}
+          </span>
+          <h2>
+            {e.booking
+              ? e.booking.reference
+              : next
+                ? next.type
+                : !isOpen(e)
+                  ? stages[e.stage]
+                  : !block
+                    ? "Confirm this booking"
+                    : "Set a follow-up"}
+          </h2>
+          <p>
+            {e.booking
+              ? "Outstanding balance: " + money((e.quote?.total || 0) - paid)
+              : next
+                ? dateTime(next.due) + " · Dubai time"
+                : e.holdReason ||
+                  (!block
+                    ? "Deposit verified. Staff confirmation required."
+                    : "Agree the next step with this customer.")}
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          onClick={() => {
+            if (e.booking || (!next && !block)) setTab("payments");
+            else if (!isOpen(e)) setAction("stage");
+            else {
+              setTaskId(next?.id || "");
+              setAction("task");
+            }
+          }}
+        >
+          {e.booking || (!next && !block)
+            ? "Review booking"
+            : !isOpen(e)
+              ? "Review stage"
+              : next
+                ? "Reschedule"
+                : "Set follow-up"}
+        </Button>
+      </section>
       <div className="detail-grid">
         <div>
           <section className="panel">
@@ -1172,6 +1577,7 @@ function Detail() {
               {["overview", "activity", "payments", "files"].map((t) => (
                 <button
                   key={t}
+                  aria-pressed={tab === t}
                   className={tab === t ? "active" : ""}
                   onClick={() => setTab(t)}
                 >
@@ -1365,7 +1771,7 @@ function Detail() {
                         <Stat
                           label="Accepted booking value"
                           value={money(e.quote.total)}
-                          foot="Immutable quotation snapshot"
+                          foot="Accepted quotation"
                         />
                         <Stat
                           label="Verified funds"
@@ -1591,6 +1997,11 @@ function Detail() {
               : "Changes are recorded in the local demo history. Times are Asia/Dubai."
         }
       >
+        {error && (
+          <p className="error-banner" role="alert">
+            {error}
+          </p>
+        )}
         <form onSubmit={submit}>
           {action === "note" && (
             <label>
@@ -1647,7 +2058,10 @@ function Detail() {
             <>
               <label>
                 Task type
-                <select name="kind">
+                <select
+                  name="kind"
+                  defaultValue={rescheduling?.type || "Follow-up"}
+                >
                   {[
                     "Follow-up",
                     "Initial call",
@@ -1662,11 +2076,22 @@ function Detail() {
               </label>
               <label>
                 Accepted date and time · Dubai
-                <input type="datetime-local" name="due" required />
+                <input
+                  type="datetime-local"
+                  name="due"
+                  required
+                  defaultValue={
+                    rescheduling
+                      ? new Date(Date.parse(rescheduling.due) + 4 * 3600000)
+                          .toISOString()
+                          .slice(0, 16)
+                      : ""
+                  }
+                />
               </label>
               <label>
                 Notes
-                <textarea name="note" />
+                <textarea name="note" defaultValue={rescheduling?.note || ""} />
               </label>
             </>
           )}
@@ -1846,14 +2271,26 @@ function Detail() {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={busy}>
+            <Button
+              type="submit"
+              disabled={busy}
+              variant={
+                ["cancel", "reverse"].includes(action)
+                  ? "destructive"
+                  : "default"
+              }
+            >
               {busy
                 ? "Saving…"
                 : action === "verify"
                   ? "Verify funds"
                   : action === "confirm"
                     ? "Confirm booking"
-                    : "Save"}
+                    : action === "cancel"
+                      ? "Cancel task"
+                      : action === "reverse"
+                        ? "Reverse payment"
+                        : "Save"}
             </Button>
           </div>
         </form>
@@ -1909,25 +2346,13 @@ function Trips() {
       <div className="trips-grid">
         {data.trips.map((t) => (
           <section className="panel trip-card" key={t.id}>
-            <div className="trip-art" aria-label="Abstract mountain landscape">
-              <span className="trip-coordinate">
-                {t.id === "DEMO-NORWAY" ? "69° N / 18° E" : "DRAFT JOURNEY"}
+            <div className="trip-card-top">
+              <span className="trip-destination">
+                <Map size={18} />
+                {t.destination}
               </span>
-              <span className="mountain mountain-one" />
-              <span className="mountain mountain-two" />
-              <span className="mountain mountain-three" />
-              <div className="trip-art-label">
-                <span>
-                  {t.id === "DEMO-NORWAY"
-                    ? "NORTHERN HORIZONS"
-                    : "YOUR NEXT JOURNEY"}
-                </span>
-                <strong>{t.destination}</strong>
-              </div>
               <Badge kind={t.status === "published" ? "confirmed" : "draft"}>
-                {t.status === "published"
-                  ? "Published · manual use"
-                  : "Draft trip"}
+                {t.status}
               </Badge>
             </div>
             <div className="trip-body">
@@ -1958,6 +2383,16 @@ function Trips() {
                   </span>
                 </div>
               </div>
+              <Link
+                className="trip-enquiries"
+                to={"/enquiries?trip=" + encodeURIComponent(t.id) + "&open=1"}
+              >
+                {
+                  data.enquiries.filter((e) => e.tripId === t.id && isOpen(e))
+                    .length
+                }{" "}
+                open enquiries <ArrowRight size={15} />
+              </Link>
               <div className="trip-actions">
                 <Button
                   variant="outline"
@@ -1985,49 +2420,13 @@ function Trips() {
             </div>
           </section>
         ))}
-        <div className="trip-side">
-          <div className="panel compact">
-            <span className="eyebrow">CONTENT READINESS</span>
-            <h2>
-              Ready for conversations.
-              <br />
-              Still shaping the journey.
-            </h2>
-            <p className="muted">
-              Missing trip content doesn’t stop qualification, calls or
-              follow-ups.
-            </p>
-            <ul className="readiness">
-              <li>
-                <CheckCircle2 size={18} />
-                Enquiry management available
-              </li>
-              <li>
-                <CheckCircle2 size={18} />
-                Manual availability checks
-              </li>
-              <li>
-                <Clock3 size={18} />
-                Approved dates and pricing
-              </li>
-              <li>
-                <Clock3 size={18} />
-                Itinerary and FAQs
-              </li>
-              <li>
-                <Clock3 size={18} />
-                Deposit terms and rule approval
-              </li>
-            </ul>
-          </div>
-          <div className="draft-note">
-            <ShieldCheck size={21} />
-            <p>
-              <strong>Existing quotes are unchanged by trip edits.</strong>
-            </p>
-          </div>
-        </div>
       </div>
+      {!data.trips.length && (
+        <EmptyState title="No trips yet">
+          <p>Create a draft trip to begin.</p>
+        </EmptyState>
+      )}
+      <p className="micro">Trip edits do not change accepted quotations.</p>
       <Modal
         open={newTrip}
         onClose={() => setNewTrip(false)}
@@ -2188,22 +2587,50 @@ function Trips() {
 }
 function Bookings() {
   const { data } = useCRM();
-  const bookings = data.enquiries.filter((e) => e.booking);
+  const [search, setSearch] = useViewParam("q");
+  const [balance, setBalance] = useViewParam("balance");
+  const [confirmedSince] = useViewParam("confirmedSince");
+  const location = useLocation();
+  const [, setBookingParams] = useSearchParams();
+  const bookingBase =
+    "/bookings" +
+    (confirmedSince
+      ? "?confirmedSince=" + encodeURIComponent(confirmedSince)
+      : "");
+  const bookings = data.enquiries.filter(
+    (e) =>
+      e.booking && (!confirmedSince || e.booking.confirmedAt >= confirmedSince),
+  );
+  const shown = bookings.filter(
+    (e) =>
+      (!search ||
+        (e.name + " " + e.booking!.reference)
+          .toLowerCase()
+          .includes(search.toLowerCase())) &&
+      (balance !== "due" || (e.quote?.total || 0) > verifiedTotal(e)),
+  );
   return (
     <>
       <Heading title="Bookings" />
       <div className="stats three">
-        <Stat
+        <Metric
+          to={bookingBase}
           label="Confirmed bookings"
           value={bookings.length}
           foot="Explicit staff confirmation"
         />
-        <Stat
+        <Metric
+          to={bookingBase}
           label="Booking value · AED"
           value={money(bookings.reduce((s, e) => s + (e.quote?.total || 0), 0))}
-          foot="By confirmation date · all demo dates"
+          foot={
+            confirmedSince
+              ? "Selected confirmation period"
+              : "All confirmed bookings"
+          }
         />
-        <Stat
+        <Metric
+          to={bookingBase + (confirmedSince ? "&" : "?") + "balance=due"}
           label="Outstanding balance · AED"
           value={money(
             bookings.reduce(
@@ -2219,9 +2646,34 @@ function Bookings() {
           <h2>Confirmed journeys</h2>
           <Badge kind="confirmed">{bookings.length} confirmed</Badge>
         </div>
-        {bookings.length ? (
+        <div className="filterbar">
+          <div className="search">
+            <Search size={17} />
+            <input
+              aria-label="Search bookings"
+              placeholder="Search customer or booking reference"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <select
+            aria-label="Filter booking balance"
+            value={balance}
+            onChange={(e) => setBalance(e.target.value)}
+          >
+            <option value="">All balances</option>
+            <option value="due">Balance outstanding</option>
+          </select>
+          <span className="muted">{shown.length} results</span>
+          {(search || balance || confirmedSince) && (
+            <Button variant="ghost" onClick={() => setBookingParams({})}>
+              Reset filters
+            </Button>
+          )}
+        </div>
+        {shown.length ? (
           <div className="table-scroll">
-            <table>
+            <table className="booking-table">
               <thead>
                 <tr>
                   <th>Booking / customer</th>
@@ -2234,30 +2686,36 @@ function Bookings() {
                 </tr>
               </thead>
               <tbody>
-                {bookings.map((e) => (
+                {shown.map((e) => (
                   <tr key={e.id}>
                     <td>
-                      <Link className="booking-ref" to={`/enquiries/${e.id}`}>
+                      <Link
+                        className="booking-ref"
+                        state={{ from: location.pathname + location.search }}
+                        to={`/enquiries/${e.id}?tab=payments`}
+                      >
                         {e.booking!.reference}
                       </Link>
                       <small>
                         {e.name} · {e.travellers ?? "Unknown"} travellers
                       </small>
                     </td>
-                    <td>
+                    <td data-label="Trip">
                       {data.trips.find((t) => t.id === e.tripId)?.destination}
                       <small>
                         {data.trips.find((t) => t.id === e.tripId)?.departure ||
                           "Departure pending"}
                       </small>
                     </td>
-                    <td>
+                    <td data-label="Confirmed">
                       {dateTime(e.booking!.confirmedAt)}
                       <small>{e.booking!.actor}</small>
                     </td>
-                    <td>{money(e.quote!.total)}</td>
-                    <td>{money(verifiedTotal(e))}</td>
-                    <td>
+                    <td data-label="Booking value">{money(e.quote!.total)}</td>
+                    <td data-label="Verified paid">
+                      {money(verifiedTotal(e))}
+                    </td>
+                    <td data-label="Balance">
                       <strong>
                         {money(e.quote!.total - verifiedTotal(e))}
                       </strong>
@@ -2265,7 +2723,9 @@ function Bookings() {
                     </td>
                     <td>
                       <Link
-                        to={`/enquiries/${e.id}`}
+                        className="row-open"
+                        state={{ from: location.pathname + location.search }}
+                        to={`/enquiries/${e.id}?tab=payments`}
                         aria-label={`Open booking ${e.booking!.reference}`}
                       >
                         <ChevronRight size={18} />
@@ -2278,8 +2738,14 @@ function Bookings() {
           </div>
         ) : (
           <Empty
-            title="No confirmed bookings"
-            text="Verify the deposit and explicitly confirm from an enquiry’s Payments tab."
+            title={
+              bookings.length ? "No matching bookings" : "No confirmed bookings"
+            }
+            text={
+              bookings.length
+                ? "Try another customer name or balance filter."
+                : "Verify the deposit and explicitly confirm from an enquiry’s Payments tab."
+            }
           />
         )}
       </section>
@@ -2297,13 +2763,17 @@ function Overview() {
     queryKey: ["reports-access"],
     queryFn: reports,
   });
-  const [period, setPeriod] = useState("all");
+  const [period, setPeriod] = useViewParam("period", "all");
   const start =
     period === "7"
       ? Date.now() - 7 * 86400000
       : period === "30"
         ? Date.now() - 30 * 86400000
         : 0;
+  const dateFilter = start ? new Date(start).toISOString() : "";
+  const cohortLink =
+    "/enquiries" +
+    (dateFilter ? "?since=" + encodeURIComponent(dateFilter) : "");
   const cohort = data.enquiries.filter((e) => Date.parse(e.createdAt) >= start);
   const confirmed = cohort.filter((e) => e.booking);
   const confirmations = data.enquiries.filter(
@@ -2341,12 +2811,14 @@ function Overview() {
         </select>
       </Heading>
       <div className="stats">
-        <Stat
+        <Metric
+          to={cohortLink}
           label="Enquiries in cohort"
           value={cohort.length}
           foot="By enquiry creation date"
         />
-        <Stat
+        <Metric
+          to={cohortLink + (dateFilter ? "&" : "?") + "stage=CONFIRMED"}
           label="Cohort conversion"
           value={
             cohort.length
@@ -2355,12 +2827,22 @@ function Overview() {
           }
           foot={`${confirmed.length} confirmed / ${cohort.length} enquiries`}
         />
-        <Stat
+        <Metric
+          to={
+            "/bookings" +
+            (dateFilter
+              ? "?confirmedSince=" + encodeURIComponent(dateFilter)
+              : "")
+          }
           label="Confirmed in period"
           value={confirmations.length}
           foot="By booking confirmation date"
         />
-        <Stat
+        <Metric
+          to={
+            "/enquiries?paidSince=" +
+            encodeURIComponent(dateFilter || "1970-01-01T00:00:00.000Z")
+          }
           label="Verified cash received"
           value={money(payments.reduce((s, p) => s + p.amount, 0))}
           foot="AED · by payment received date"
@@ -2376,7 +2858,10 @@ function Overview() {
             {Object.entries(stages).map(([key, label]) => {
               const count = cohort.filter((e) => e.stage === key).length;
               return (
-                <div key={key}>
+                <Link
+                  key={key}
+                  to={cohortLink + (dateFilter ? "&" : "?") + "stage=" + key}
+                >
                   <span>{label}</span>
                   <div className="bar-track">
                     <div
@@ -2387,7 +2872,7 @@ function Overview() {
                     />
                   </div>
                   <strong>{count}</strong>
-                </div>
+                </Link>
               );
             })}
           </div>
@@ -2397,27 +2882,27 @@ function Overview() {
             <h2>Needs attention</h2>
             <ListTodo size={20} />
           </div>
-          <div className="manager-alert">
+          <Link className="manager-alert" to="/?queue=overdue">
             <span>{overdue.length}</span>
             <div>
               <strong>Overdue commitments</strong>
               <p>Current queue, all dates. Start with the oldest.</p>
             </div>
-          </div>
-          <div className="manager-alert">
+          </Link>
+          <Link className="manager-alert" to="/enquiries?missing=1">
             <span>{actionless.length}</span>
             <div>
               <strong>Open without next actions</strong>
               <p>Give every conversation a clear next step.</p>
             </div>
-          </div>
-          <div className="manager-alert">
+          </Link>
+          <Link className="manager-alert" to="/enquiries?fit=needs&open=1">
             <span>{open.filter((e) => !e.rank).length}</span>
             <div>
               <strong>Need qualification</strong>
               <p>Incomplete answers or unresolved ranking policy.</p>
             </div>
-          </div>
+          </Link>
           <Button asChild variant="outline">
             <Link to="/">
               Open today’s action queue <ArrowRight size={15} />

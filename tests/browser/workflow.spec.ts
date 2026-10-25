@@ -106,7 +106,11 @@ test("responsive screens have no document overflow or runtime errors", async ({
         .toBe(true);
       if (width === 1440 || width === 390)
         await page.screenshot({
-          path: `test-results/${width}-${route.replaceAll("/", "_") || "today"}.png`,
+          path: test
+            .info()
+            .outputPath(
+              `${width}-${route.replaceAll("/", "_") || "today"}.png`,
+            ),
           fullPage: true,
         });
     }

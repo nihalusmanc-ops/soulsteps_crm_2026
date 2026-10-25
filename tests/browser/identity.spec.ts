@@ -5,7 +5,9 @@ test("local identity switch is backed by server permissions", async ({
   await page.goto("/");
   await page.getByLabel("Local demo identity").selectOption("staff");
   await expect(page.getByLabel("Local demo identity")).toHaveValue("staff");
-  await expect(page.getByRole("link", { name: "Overview M" })).toHaveCount(0);
+  await expect(
+    page.getByRole("link", { name: "Overview", exact: true }),
+  ).toHaveCount(0);
   await page.goto("/overview");
   await expect(
     page.getByRole("heading", { name: "Manager view" }),

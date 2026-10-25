@@ -1,8 +1,11 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { reminders, useWorkspace } from "./data/management";
 import { dateTime } from "../shared/domain";
 export function DueReminders() {
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState("");
   const cfg = useWorkspace();
   const query = useQuery({
     queryKey: ["reminders"],
@@ -13,8 +16,8 @@ export function DueReminders() {
   if (query.isError)
     return (
       <p role="alert" className="notice">
-        Due reminders could not be loaded. Your task queue is still available
-        below.
+        Due reminders could not be loaded. Your task queue is still available in
+        the action queue.
       </p>
     );
   const unread = query.data?.filter((n) => !n.read_at) || [];
@@ -33,8 +36,13 @@ export function DueReminders() {
     <section className="panel due-reminders">
       <div className="section-head">
         <h2>Due reminders</h2>
-        <span className="muted">One per scheduled task</span>
+        <span className="count">{unread.length}</span>
       </div>
+      {error && (
+        <p role="alert" className="notice">
+          {error}
+        </p>
+      )}
       {unread.slice(0, 5).map((n) => (
         <div key={n.id}>
           <Link to={`/enquiries/${n.enquiry_id}`}>
@@ -45,9 +53,22 @@ export function DueReminders() {
           </Link>
           <button
             className="button ghost small"
+            disabled={busy === n.id}
             onClick={async () => {
-              await reminders.read(n.id);
-              await client.invalidateQueries({ queryKey: ["reminders"] });
+              setBusy(n.id);
+              setError("");
+              try {
+                await reminders.read(n.id);
+                await client.invalidateQueries({ queryKey: ["reminders"] });
+              } catch (error) {
+                setError(
+                  error instanceof Error
+                    ? error.message
+                    : "Could not mark this reminder as seen. Try again.",
+                );
+              } finally {
+                setBusy("");
+              }
             }}
           >
             Mark seen

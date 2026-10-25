@@ -1,3 +1,4 @@
+import { useViewParam } from "./components/ui/workspace";
 import { useState } from "react";
 import { ImportPreview } from "./ImportPreview";
 import { MetaIntegration } from "./MetaIntegration";
@@ -15,7 +16,7 @@ import {
 } from "../shared/management";
 import { dateTime, type Trip } from "../shared/domain";
 export function Management() {
-  const [tab, setTab] = useState("health"),
+  const [tab, setTab] = useViewParam("section", "health"),
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false),
@@ -59,17 +60,19 @@ export function Management() {
         <div>
           <h1>Settings</h1>
         </div>
-        <Button
-          disabled={busy}
-          onClick={() =>
-            act(
-              management.sweep,
-              "Due checks requested. Results update as background jobs finish.",
-            )
-          }
-        >
-          Run due checks
-        </Button>
+        {tab === "health" && (
+          <Button
+            disabled={busy}
+            onClick={() =>
+              act(
+                management.sweep,
+                "Due checks requested. Results update as background jobs finish.",
+              )
+            }
+          >
+            Run due checks
+          </Button>
+        )}
       </div>
       {error && (
         <p role="alert" className="error-banner">
@@ -81,36 +84,38 @@ export function Management() {
           {message}
         </p>
       )}
-      <div className="stats">
-        <div className="stat">
-          <span>Checks enabled</span>
-          <strong>
-            {cfg.settings.jobsPaused || cfg.settings.recoveryHold
-              ? "Paused"
-              : "Ready"}
-          </strong>
-          <small>
-            {cfg.settings.recoveryHold
-              ? "Recovery review required"
-              : "In-app only · no customer sends"}
-          </small>
+      {tab === "health" && (
+        <div className="stats">
+          <div className="stat">
+            <span>Checks enabled</span>
+            <strong>
+              {cfg.settings.jobsPaused || cfg.settings.recoveryHold
+                ? "Paused"
+                : "Ready"}
+            </strong>
+            <small>
+              {cfg.settings.recoveryHold
+                ? "Recovery review required"
+                : "In-app only · no customer sends"}
+            </small>
+          </div>
+          <div className="stat">
+            <span>Waiting / queued</span>
+            <strong>{count("pending") + count("queued")}</strong>
+            <small>Persisted before queue handoff</small>
+          </div>
+          <div className="stat warning">
+            <span>Failed checks</span>
+            <strong>{count("failed")}</strong>
+            <small>Visible until reviewed and retried</small>
+          </div>
+          <div className="stat">
+            <span>Completed checks</span>
+            <strong>{count("succeeded")}</strong>
+            <small>Repeated delivery creates no duplicate reminder</small>
+          </div>
         </div>
-        <div className="stat">
-          <span>Waiting / queued</span>
-          <strong>{count("pending") + count("queued")}</strong>
-          <small>Persisted before queue handoff</small>
-        </div>
-        <div className="stat warning">
-          <span>Failed checks</span>
-          <strong>{count("failed")}</strong>
-          <small>Visible until reviewed and retried</small>
-        </div>
-        <div className="stat">
-          <span>Completed checks</span>
-          <strong>{count("succeeded")}</strong>
-          <small>Repeated delivery creates no duplicate reminder</small>
-        </div>
-      </div>
+      )}
       <section className="panel">
         <div className="tabs">
           {[
@@ -123,6 +128,7 @@ export function Management() {
           ].map(([id, label]) => (
             <button
               key={id}
+              aria-pressed={tab === id}
               className={tab === id ? "active" : ""}
               onClick={() => setTab(id)}
             >
