@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:e2e": "npm run build && playwright test",
     "test:password:e2e": "npm run build && playwright test --config playwright.password.config.ts",
+    "test:controls": "playwright test --config playwright.controls.config.ts",
     "dev:web": "vite --host 127.0.0.1 --strictPort",
     "db:migrate:local": "wrangler d1 migrations apply DB --local --config wrangler.local.jsonc",
     "db:seed:local": "tsx scripts/seed.ts",

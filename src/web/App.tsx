@@ -1,3 +1,4 @@
+import { DateTimeField } from "./components/ui/date-time-field";
 import {
   Metric,
   ViewSwitch,
@@ -2109,7 +2110,11 @@ function Detail() {
               </label>
               <label>
                 Next follow-up · Dubai
-                <input type="datetime-local" name="due" />
+                <DateTimeField
+                  pickerLabel="Follow-up date and time"
+                  type="datetime-local"
+                  name="due"
+                />
               </label>
               <label>
                 If no next action, explain why
@@ -2142,7 +2147,8 @@ function Detail() {
               </label>
               <label>
                 Accepted date and time · Dubai
-                <input
+                <DateTimeField
+                  pickerLabel="Follow-up date and time"
                   type="datetime-local"
                   name="due"
                   required
@@ -2243,7 +2249,8 @@ function Detail() {
               </label>
               <label>
                 Received date
-                <input
+                <DateTimeField
+                  pickerLabel="Received date"
                   type="date"
                   name="date"
                   defaultValue={dubaiDay()}
@@ -2581,7 +2588,8 @@ function Trips() {
             </label>
             <label>
               Departure date
-              <input
+              <DateTimeField
+                pickerLabel="Departure date"
                 type="date"
                 name="departure"
                 defaultValue={editing.departure}

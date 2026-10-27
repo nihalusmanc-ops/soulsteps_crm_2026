@@ -1,3 +1,4 @@
+import { DateTimeField } from "./components/ui/date-time-field";
 import { useViewParam } from "./components/ui/workspace";
 import { useState } from "react";
 import { ImportPreview } from "./ImportPreview";
@@ -500,7 +501,8 @@ export function Management({ embedded = false }: { embedded?: boolean }) {
             <div className="form-grid">
               <label>
                 Business start
-                <input
+                <DateTimeField
+                  pickerLabel="Business start time"
                   type="time"
                   value={edit.businessStart}
                   onChange={(e) =>
@@ -511,7 +513,8 @@ export function Management({ embedded = false }: { embedded?: boolean }) {
               </label>
               <label>
                 Business end
-                <input
+                <DateTimeField
+                  pickerLabel="Business end time"
                   type="time"
                   value={edit.businessEnd}
                   onChange={(e) =>

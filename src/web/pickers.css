@@ -1,0 +1,276 @@
+/* Native select semantics, with a consistent popup where supported. */
+select {
+  min-height: 42px;
+  border-radius: 8px;
+  border: 1px solid #d6d1c7;
+  padding: 9px 34px 9px 12px;
+  background-color: #fffefa;
+  color: #302e29;
+  cursor: pointer;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+select:hover:not(:disabled) {
+  border-color: #a99d8c;
+}
+select:focus-visible {
+  outline: 2px solid #a14e35;
+  outline-offset: 2px;
+}
+select:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+@supports (appearance: base-select) {
+  select,
+  ::picker(select) {
+    appearance: base-select;
+  }
+  select::picker-icon {
+    color: #777064;
+    transition: rotate 0.15s;
+  }
+  select:open::picker-icon {
+    rotate: 180deg;
+  }
+  ::picker(select) {
+    margin-block: 6px;
+    padding: 5px;
+    border: 1px solid #dcd5c9;
+    border-radius: 10px;
+    background: #fffefa;
+    box-shadow: 0 8px 28px #302e2920;
+    max-height: min(330px, 55dvh);
+    overflow-y: auto;
+    min-width: anchor-size(width);
+    scrollbar-width: thin;
+    scrollbar-color: #c5bfb3 transparent;
+  }
+  option {
+    min-height: 38px;
+    padding: 9px 10px;
+    gap: 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    white-space: normal;
+  }
+  option:hover,
+  option:focus {
+    background: #f1ede4;
+    color: #302e29;
+  }
+  option:checked {
+    background: #efe4d9;
+    color: #713e2b;
+    font-weight: 600;
+  }
+  option::checkmark {
+    color: #a14e35;
+  }
+  option:disabled {
+    color: #999184;
+  }
+}
+.date-time-field {
+  display: block;
+  position: relative;
+  min-width: 0;
+}
+.date-time-field > input {
+  width: 100%;
+  min-height: 44px;
+  padding-right: 44px;
+  cursor: pointer;
+}
+.date-time-field input::-webkit-calendar-picker-indicator {
+  display: none;
+}
+.date-time-trigger {
+  position: absolute;
+  inset: 2px 2px 2px auto;
+  width: 40px;
+  min-height: 40px;
+  border: 0;
+  border-left: 1px solid #e5e2da;
+  border-radius: 0 6px 6px 0;
+  background: transparent;
+  color: #7c6a58;
+  display: grid;
+  place-items: center;
+}
+.date-time-trigger:hover {
+  background: #f0ebe2;
+  color: #a14e35;
+}
+.picker-overlay {
+  position: fixed;
+  inset: 0;
+  background: #29251e66;
+  z-index: 160;
+}
+.date-time-picker {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 360px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  z-index: 161;
+  padding: 20px;
+  border: 1px solid #ded7cb;
+  border-radius: 16px;
+  background: #fffefa;
+  color: #302e29;
+  box-shadow: 0 20px 70px #29251e33;
+}
+.picker-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.picker-title h2 {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.picker-title .icon-button {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+}
+.picker-description {
+  color: #706c63;
+  font-size: 12px;
+  margin: 4px 0 20px;
+}
+.calendar-heading {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+.calendar-heading select {
+  flex: 1;
+  min-width: 0;
+  min-height: 38px;
+  padding: 8px;
+  border-color: transparent;
+  background: transparent;
+  font-weight: 600;
+}
+.calendar-heading select[aria-label="Calendar year"] {
+  flex: 0 0 78px;
+}
+.calendar-heading .icon-button {
+  flex-shrink: 0;
+  width: 32px;
+  height: 36px;
+  min-height: 36px;
+}
+.calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 3px;
+}
+.calendar-days .weekday {
+  padding: 6px 0;
+  text-align: center;
+  font-size: 11px;
+  color: #82796b;
+}
+.calendar-days button {
+  aspect-ratio: 1;
+  min-height: 39px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #302e29;
+  font-size: 13px;
+  padding: 0;
+  font-weight: 400;
+}
+.calendar-days button:hover:not(:disabled) {
+  background: #f0eade;
+}
+.calendar-days button.adjacent-month {
+  color: #a49c8f;
+}
+.calendar-days button[aria-current="date"] {
+  border-color: #c6b39d;
+}
+.calendar-days button[aria-pressed="true"] {
+  background: #a14e35;
+  color: white;
+  border-color: #a14e35;
+  font-weight: 600;
+}
+.calendar-days button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+.calendar-shortcuts {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+.calendar-shortcuts button {
+  border: 1px solid #e0d9cc;
+  border-radius: 6px;
+  background: transparent;
+  padding: 7px 12px;
+  color: #6b5845;
+  min-height: 36px;
+  font-size: 12px;
+}
+.calendar-shortcuts button:hover {
+  background: #f3ede3;
+}
+.time-selection {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  border-top: 1px solid #e5e2da;
+  margin-top: 18px;
+  padding-top: 18px;
+}
+.time-selection label {
+  flex: 1;
+  color: #706c63;
+  font-size: 12px;
+  display: grid;
+  gap: 7px;
+}
+.time-selection select {
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  width: 100%;
+}
+.time-selection > span {
+  padding-bottom: 10px;
+  color: #9a8b78;
+}
+.picker-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e2da;
+}
+.picker-footer .button {
+  min-height: 40px;
+  padding: 9px 14px;
+  font-size: 13px;
+}
+.picker-footer .ghost {
+  margin-right: auto;
+}
+@media (max-width: 420px) {
+  .date-time-picker {
+    padding: 16px;
+  }
+}
