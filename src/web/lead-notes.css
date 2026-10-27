@@ -1,0 +1,186 @@
+.workbook-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin-top: 5px;
+  border: 1px solid;
+  border-radius: 5px;
+  padding: 3px 7px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: normal;
+}
+.colour-red {
+  background: #fff0ef;
+  color: #9c3027;
+  border-color: #ebbbb5;
+}
+.colour-orange {
+  background: #fff0dc;
+  color: #8a4a09;
+  border-color: #ecc58e;
+}
+.colour-blue {
+  background: #edf4ff;
+  color: #285a9e;
+  border-color: #bbd1ee;
+}
+.colour-yellow {
+  background: #fff9d5;
+  color: #716011;
+  border-color: #e5d888;
+}
+.colour-magenta {
+  background: #fcecf7;
+  color: #953c7a;
+  border-color: #e3b9d7;
+}
+.colour-green {
+  background: #eaf6ed;
+  color: #316c40;
+  border-color: #b7d6be;
+}
+.colour-review {
+  background: #f2edfc;
+  color: #69439a;
+  border-color: #cebde6;
+}
+.colour-unmarked {
+  background: #f1efe9;
+  color: #746d60;
+  border-color: #dcd5c9;
+}
+.client-note-cell {
+  min-width: 210px;
+  max-width: 290px;
+}
+.client-note-cell > p,
+.mobile-client-note {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+.client-note-cell > small {
+  font-size: 11px;
+  line-height: 1.5;
+  margin-top: 5px;
+}
+.client-note-cell .button {
+  padding-left: 0;
+  min-height: 32px;
+}
+.mobile-client-note {
+  margin-top: 10px;
+}
+.source-followup {
+  display: grid;
+  gap: 3px;
+  font-size: 12px;
+  white-space: normal;
+  margin: 8px 0;
+}
+.source-followup > strong {
+  font-size: 11px;
+  font-weight: 500;
+  color: #786448;
+}
+.source-followup > small {
+  font-size: 11px;
+  color: #7d715e;
+  line-height: 1.4;
+}
+.notes-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: #29251e55;
+}
+.lead-notes-drawer {
+  position: fixed;
+  inset: 0 0 0 auto;
+  width: 440px;
+  max-width: 100vw;
+  height: 100dvh;
+  overflow-y: auto;
+  background: #fffefa;
+  border-left: 1px solid #ded8cb;
+  z-index: 101;
+  padding: 28px;
+  box-shadow: -12px 0 50px #302e2915;
+}
+.lead-notes-drawer > .muted {
+  margin: 6px 0 14px;
+}
+.lead-notes-drawer > .button {
+  width: 100%;
+  margin-top: 24px;
+}
+.lead-note-content {
+  margin: 20px 0;
+  padding: 18px;
+  border: 1px solid #e5e0d4;
+  border-radius: 10px;
+  background: #fcfaf4;
+}
+.lead-note-content h3 {
+  margin-bottom: 10px;
+}
+.client-note-text,
+.note-history p {
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.note-next-step {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #e5e0d4;
+}
+.note-next-step strong {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #7b6548;
+}
+.note-next-step p {
+  margin-top: 5px;
+  font-size: 13px;
+}
+.note-history {
+  margin-top: 20px;
+}
+.note-history summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+.note-history > div {
+  padding: 14px 0;
+  border-bottom: 1px solid #e5e2da;
+}
+.note-history small {
+  display: block;
+  color: #827868;
+  font-size: 11px;
+  margin-top: 6px;
+}
+.source-note > summary {
+  cursor: pointer;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.source-note > p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 480px) {
+  .lead-notes-drawer {
+    padding: 20px;
+  }
+}

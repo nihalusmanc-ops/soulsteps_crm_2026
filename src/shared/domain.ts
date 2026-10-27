@@ -1,4 +1,5 @@
 import type { Rule } from "./management";
+import type { WorkbookContext } from "./workbook-context";
 import { z } from "zod";
 export const stages = {
   NEW: "New enquiry",
@@ -60,6 +61,7 @@ export type Enquiry = {
   shared?: boolean;
   sourceSections?: string[];
   sourceForms?: string[];
+  workbook?: WorkbookContext;
   name: string;
   email: string;
   phone: string | null;

@@ -1,3 +1,11 @@
+import {
+  LeadNotesDrawer,
+  LeadNoteCard,
+  WorkbookBadge,
+  SourceFollowup,
+  clientNote,
+} from "./LeadNotes";
+import { leadColourLabels } from "../shared/workbook-context";
 import { DateTimeField } from "./components/ui/date-time-field";
 import {
   Metric,
@@ -624,6 +632,7 @@ function Customer({ e }: { e: Enquiry }) {
       <Avatar name={e.name} />
       <span>
         <strong>{e.name}</strong>
+        <WorkbookBadge e={e} />
         <small>
           {e.group} · {e.travellers ?? "Unknown"} traveller
           {e.travellers === 1 ? "" : "s"}
@@ -912,6 +921,9 @@ function Today({ onCreate }: { onCreate: () => void }) {
   );
 }
 function Enquiries({ onCreate }: { onCreate: () => void }) {
+  const [notesFor, setNotesFor] = useState<Enquiry | null>(null);
+  const notesTrigger = useRef<HTMLButtonElement | null>(null);
+  const [clientStatus, setClientStatus] = useViewParam("clientStatus", "");
   const stages = useStageLabels();
   const { data } = useCRM();
   const location = useLocation();
@@ -950,6 +962,7 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
     group,
     source,
     sourceSection,
+    clientStatus,
     missing,
     response,
     owner,
@@ -966,6 +979,7 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
           .toLowerCase()
           .includes(q.toLowerCase()) &&
         (!sourceSection || e.sourceSections?.includes(sourceSection)) &&
+        (!clientStatus || e.workbook?.colour === clientStatus) &&
         (!paidSince ||
           e.payments.some(
             (p) => p.status === "verified" && p.date >= paidSince,
@@ -997,6 +1011,11 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
     );
   return (
     <>
+      <LeadNotesDrawer
+        enquiry={notesFor}
+        onClose={() => setNotesFor(null)}
+        returnFocus={notesTrigger}
+      />
       <Heading title="Enquiries">
         <Button onClick={onCreate}>
           <Plus size={17} />
@@ -1059,6 +1078,18 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
         </div>
         {extra && (
           <div className="extra-filters" id="enquiry-filters">
+            <select
+              aria-label="Filter workbook colour"
+              value={clientStatus}
+              onChange={(e) => setClientStatus(e.target.value)}
+            >
+              <option value="">All client statuses</option>
+              {Object.entries(leadColourLabels).map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
             <select
               aria-label="Filter owner"
               value={owner}
@@ -1241,6 +1272,19 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
                     <span>{e.owner}</span>
                   </div>
                   <Fit e={e} />
+                  <p className="mobile-client-note">{clientNote(e)}</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label={`View notes for ${e.name}`}
+                    onClick={(event) => {
+                      notesTrigger.current = event.currentTarget;
+                      setNotesFor(e);
+                    }}
+                  >
+                    Notes
+                  </Button>
+                  <SourceFollowup e={e} />
                   <div className="mobile-card-action">
                     <span>
                       <strong>
@@ -1288,7 +1332,7 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
                       Next action <ArrowDown size={12} />
                     </th>
                     <th>Trip / owner</th>
-                    <th>Last contact</th>
+                    <th>Client note / next step</th>
                     <th />
                   </tr>
                 </thead>
@@ -1312,11 +1356,7 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
                       <td>
                         <strong className="cell-title">
                           {nextTask(e)?.type ||
-                            (isOpen(e)
-                              ? "Needs next action"
-                              : e.holdReason
-                                ? "Closed / held"
-                                : "Booking confirmed")}
+                            (isOpen(e) ? "Needs next action" : stages[e.stage])}
                         </strong>
                         <small
                           className={
@@ -1332,6 +1372,7 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
                             : ""}
                           {nextTask(e) ? dateTime(nextTask(e)!.due) : "—"}
                         </small>
+                        {!nextTask(e) && <SourceFollowup e={e} />}
                       </td>
                       <td>
                         <strong className="cell-title">
@@ -1340,10 +1381,25 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
                         </strong>
                         <small>{e.owner}</small>
                       </td>
-                      <td>
-                        {e.lastContact
-                          ? dateTime(e.lastContact)
-                          : "Not contacted"}
+                      <td className="client-note-cell">
+                        <p>{clientNote(e)}</p>
+                        {e.workbook && <small>{e.workbook.nextStep}</small>}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          aria-label={`View notes for ${e.name}`}
+                          onClick={(event) => {
+                            notesTrigger.current = event.currentTarget;
+                            setNotesFor(e);
+                          }}
+                        >
+                          Notes
+                        </Button>
+                        {e.lastContact && (
+                          <small>
+                            Last logged call: {dateTime(e.lastContact)}
+                          </small>
+                        )}
                       </td>
                       <td>
                         <Link
@@ -1587,6 +1643,7 @@ function Detail() {
       </div>
       <div className="detail-summary">
         <StageBadge stage={e.stage} />
+        <WorkbookBadge e={e} />
         <span>{trip?.name}</span>
         <span>Owner: {e.owner}</span>
         <span>Created {dateTime(e.createdAt)}</span>
@@ -1820,14 +1877,14 @@ function Detail() {
                       }
                     />
                   )}
-                  <div className="source-note">
-                    <h3>Original source context</h3>
+                  <details className="source-note">
+                    <summary>Original source context</summary>
                     <p>{e.originalNote}</p>
                     <small>
                       Original group answer: {e.originalGroup} · preserved
                       independently of edits
                     </small>
-                  </div>
+                  </details>
                 </>
               )}
               {tab === "activity" && (
@@ -2025,6 +2082,7 @@ function Detail() {
           )}
         </div>
         <aside className="detail-aside">
+          {e.workbook && <LeadNoteCard e={e} />}
           <section className="panel compact">
             <h3>Enquiry controls</h3>
             <label>
