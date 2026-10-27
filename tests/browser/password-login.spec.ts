@@ -24,6 +24,7 @@ test("Soulsteps sign-in, rejected password, private navigation, sign-out and ses
   await expect(
     page.getByRole("heading", { name: "Today", exact: true }),
   ).toBeVisible();
+  await page.locator(".profile-trigger").click();
   await page.getByRole("link", { name: "Account security" }).click();
   await page.getByLabel("Current password").fill(password);
   await page
@@ -36,6 +37,7 @@ test("Soulsteps sign-in, rejected password, private navigation, sign-out and ses
   await expect(page.getByRole("status")).toContainText(
     "Your password is saved",
   );
+  await page.locator(".profile-trigger").click();
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Welcome back" }),
@@ -66,9 +68,14 @@ test("staff password session retains server-enforced role permissions", async ({
     page.getByRole("heading", { name: "Manager view" }),
   ).toBeVisible();
   expect((await page.request.get("/api/reports")).status()).toBe(403);
+  await page.getByRole("link", { name: "Settings", exact: true }).click();
   await expect(
-    page.getByRole("link", { name: "Settings", exact: true }),
+    page.getByRole("heading", { name: "Profile", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Workspace settings", exact: true }),
   ).toHaveCount(0);
+  expect((await page.request.get("/api/management/jobs")).status()).toBe(403);
 });
 test("branded login is readable on desktop, tablet and mobile", async ({
   page,

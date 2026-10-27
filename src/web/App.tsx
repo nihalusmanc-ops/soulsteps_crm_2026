@@ -5,9 +5,11 @@ import {
   EmptyState,
   useViewParam,
 } from "./components/ui/workspace";
-import { Management, RuleManager, PublishTrip } from "./Management";
+import { RuleManager, PublishTrip } from "./Management";
 import { LoginPage } from "./LoginPage";
 import { AccountSecurity } from "./AccountSecurity";
+import { ProfileMenu } from "./ProfileMenu";
+import { SettingsPage } from "./SettingsPage";
 import { DueReminders } from "./DueReminders";
 import { useWorkspace, management } from "./data/management";
 import { Settings as SettingsIcon } from "lucide-react";
@@ -346,15 +348,17 @@ export default function App() {
           </button>
         )}
         <Link to="/" className="brand" aria-label="Soulsteps home">
-          <img className="brand-full-logo" src="/brand/soulsteps-logo.png" width="1536" height="946" alt="Soulsteps" />
+          <img
+            className="brand-full-logo"
+            src="/brand/soulsteps-logo.png"
+            width="1536"
+            height="946"
+            alt="Soulsteps"
+          />
         </Link>
         <nav aria-label="Main navigation">
           {nav
-            .filter(
-              (n) =>
-                role === "manager" ||
-                !["/overview", "/settings"].includes(n.to),
-            )
+            .filter((n) => role === "manager" || n.to !== "/overview")
             .map((n) => (
               <NavLink
                 key={n.to}
@@ -369,18 +373,10 @@ export default function App() {
         </nav>
         <div className="sidebar-bottom">
           {me.data && (
-            <Link
-              className="account-link"
-              to="/account/security"
-              onClick={() => setMobile(false)}
-            >
-              Account security
-            </Link>
-          )}
-          {me.data?.authMethod === "password" && (
-            <button
-              className="account-link"
-              onClick={async () => {
+            <ProfileMenu
+              identity={me.data}
+              onNavigate={() => setMobile(false)}
+              onSignOut={async () => {
                 try {
                   await session.logout();
                   client.removeQueries({
@@ -396,43 +392,36 @@ export default function App() {
                   );
                 }
               }}
-            >
-              Sign out
-            </button>
+            />
           )}
-          <div className="profile">
-            <span className="avatar">DS</span>
-            <div>
-              <strong>{me.data?.name || "Staff workspace"}</strong>
-              {me.data?.local ? (
-                <select
-                  aria-label="Local demo identity"
-                  value={role}
-                  onChange={async (e) => {
-                    try {
-                      await session.switchLocal(e.target.value);
-                      client.removeQueries({
-                        predicate: (q) => q.queryKey[0] !== "me",
-                      });
-                      await client.invalidateQueries({ queryKey: ["me"] });
-                      navigate("/");
-                    } catch (error) {
-                      setError(
-                        error instanceof Error
-                          ? error.message
-                          : "Could not switch local identity",
-                      );
-                    }
-                  }}
-                >
-                  <option value="manager">Local demo manager</option>
-                  <option value="staff">Local demo staff</option>
-                </select>
-              ) : (
-                <small>{role}</small>
-              )}
+          {me.data?.local && (
+            <div className="demo-identity-control">
+              {" "}
+              <select
+                aria-label="Local demo identity"
+                value={role}
+                onChange={async (e) => {
+                  try {
+                    await session.switchLocal(e.target.value);
+                    client.removeQueries({
+                      predicate: (q) => q.queryKey[0] !== "me",
+                    });
+                    await client.invalidateQueries({ queryKey: ["me"] });
+                    navigate("/");
+                  } catch (error) {
+                    setError(
+                      error instanceof Error
+                        ? error.message
+                        : "Could not switch local identity",
+                    );
+                  }
+                }}
+              >
+                <option value="manager">Local demo manager</option>
+                <option value="staff">Local demo staff</option>
+              </select>
             </div>
-          </div>
+          )}
         </div>
       </aside>
       <div className="main-shell" inert={mobile}>
@@ -495,16 +484,7 @@ export default function App() {
                 <Route path="/account/security" element={<AccountSecurity />} />
                 <Route
                   path="/settings"
-                  element={
-                    role === "manager" ? (
-                      <Management />
-                    ) : (
-                      <Empty
-                        title="Manager view"
-                        text="Settings require a manager identity."
-                      />
-                    )
-                  }
+                  element={me.data ? <SettingsPage identity={me.data} /> : null}
                 />
                 <Route
                   path="/"

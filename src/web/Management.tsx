@@ -15,8 +15,8 @@ import {
   type RulePreview,
 } from "../shared/management";
 import { dateTime, type Trip } from "../shared/domain";
-export function Management() {
-  const [tab, setTab] = useViewParam("section", "health"),
+export function Management({ embedded = false }: { embedded?: boolean }) {
+  const [tab, setTab] = useViewParam("section", "settings"),
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false),
@@ -27,7 +27,8 @@ export function Management() {
   const jobs = useQuery({
     queryKey: ["management-jobs"],
     queryFn: management.jobs,
-    refetchInterval: 5000,
+    enabled: tab === "health",
+    refetchInterval: tab === "health" ? 5000 : false,
   });
   const audit = useQuery({
     queryKey: ["management-audit"],
@@ -56,7 +57,9 @@ export function Management() {
     counts.find((c) => c.status === status)?.count || 0;
   return (
     <>
-      <div className="page-heading">
+      <div
+        className={`page-heading ${embedded ? "embedded-settings-heading" : ""}`}
+      >
         <div>
           <h1>Settings</h1>
         </div>
@@ -117,25 +120,27 @@ export function Management() {
         </div>
       )}
       <section className="panel">
-        <div className="tabs">
-          {[
-            ["health", "Health & retries"],
-            ["settings", "Workspace settings"],
-            ["audit", "Audit history"],
-            ["imports", "Import preview"],
-            ["meta", "Meta intake"],
-            ["release", "Release readiness"],
-          ].map(([id, label]) => (
-            <button
-              key={id}
-              aria-pressed={tab === id}
-              className={tab === id ? "active" : ""}
-              onClick={() => setTab(id)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        {!embedded && (
+          <div className="tabs">
+            {[
+              ["health", "Health & retries"],
+              ["settings", "Workspace settings"],
+              ["audit", "Audit history"],
+              ["imports", "Import preview"],
+              ["meta", "Meta intake"],
+              ["release", "Release readiness"],
+            ].map(([id, label]) => (
+              <button
+                key={id}
+                aria-pressed={tab === id}
+                className={tab === id ? "active" : ""}
+                onClick={() => setTab(id)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="management-content">
           {tab === "imports" && <ImportPreview />}
           {tab === "meta" && <MetaIntegration />}
@@ -365,7 +370,7 @@ export function Management() {
           {tab === "settings" && (
             <>
               <div className="section-head">
-                <h2>Operational defaults</h2>
+                <h2>Workspace settings</h2>
                 <Button
                   size="sm"
                   variant="outline"
@@ -375,9 +380,8 @@ export function Management() {
                 </Button>
               </div>
               <p className="muted">
-                These are proposed business defaults. Appointments still require
-                an accepted time. Changing hours never reschedules an agreed
-                callback.
+                Set working hours and reminder preferences. Agreed callbacks
+                stay unchanged.
               </p>
               <div className="facts spaced">
                 <div>
@@ -399,10 +403,6 @@ export function Management() {
                   <strong>{cfg.settings.reminderMinutes} minutes</strong>
                 </div>
                 <div>
-                  <span>Retry budget</span>
-                  <strong>{cfg.settings.maxAttempts} attempts</strong>
-                </div>
-                <div>
                   <span>Customer automation</span>
                   <strong>Disabled · manual WhatsApp</strong>
                 </div>
@@ -419,23 +419,25 @@ export function Management() {
                   </Button>
                 </div>
               )}
-              <h3>Stage labels and colours</h3>
-              <div className="stage-legend">
-                {stageCodes.map((code) => (
-                  <div key={code}>
-                    <span
-                      className="badge"
-                      style={{
-                        color: cfg.settings.stages[code].color,
-                        border: `1px solid ${cfg.settings.stages[code].color}`,
-                      }}
-                    >
-                      {cfg.settings.stages[code].label}
-                    </span>
-                    <small>{code}</small>
-                  </div>
-                ))}
-              </div>
+              <details className="settings-advanced-form">
+                <summary>Pipeline stage labels</summary>
+                <div className="stage-legend">
+                  {stageCodes.map((code) => (
+                    <div key={code}>
+                      <span
+                        className="badge"
+                        style={{
+                          color: cfg.settings.stages[code].color,
+                          border: `1px solid ${cfg.settings.stages[code].color}`,
+                        }}
+                      >
+                        {cfg.settings.stages[code].label}
+                      </span>
+                      <small>{code}</small>
+                    </div>
+                  ))}
+                </div>
+              </details>
             </>
           )}
           {tab === "audit" && (
@@ -573,76 +575,79 @@ export function Management() {
                 />
               </label>
             </div>
-            <label>
-              Maximum processing / handoff attempts
-              <input
-                type="number"
-                min={1}
-                max={10}
-                value={edit.maxAttempts}
-                onChange={(e) =>
-                  setEdit({ ...edit, maxAttempts: Number(e.target.value) })
-                }
-              />
-            </label>
-            <label className="checkbox">
-              <input
-                type="checkbox"
-                checked={edit.jobsPaused}
-                onChange={(e) =>
-                  setEdit({ ...edit, jobsPaused: e.target.checked })
-                }
-              />
-              Pause in-app background checks
-            </label>
-            {stageCodes.map((code) => (
-              <div className="stage-editor" key={code}>
-                <label>
-                  {code}
-                  <input
-                    value={edit.stages[code].label}
-                    onChange={(e) =>
-                      setEdit({
-                        ...edit,
-                        stages: {
-                          ...edit.stages,
-                          [code]: {
-                            ...edit.stages[code],
-                            label: e.target.value,
+            <details className="settings-advanced-form">
+              <summary>Advanced controls</summary>
+              <label>
+                Maximum processing / handoff attempts
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={edit.maxAttempts}
+                  onChange={(e) =>
+                    setEdit({ ...edit, maxAttempts: Number(e.target.value) })
+                  }
+                />
+              </label>
+              <label className="checkbox">
+                <input
+                  type="checkbox"
+                  checked={edit.jobsPaused}
+                  onChange={(e) =>
+                    setEdit({ ...edit, jobsPaused: e.target.checked })
+                  }
+                />
+                Pause in-app background checks
+              </label>
+              {stageCodes.map((code) => (
+                <div className="stage-editor" key={code}>
+                  <label>
+                    {code}
+                    <input
+                      value={edit.stages[code].label}
+                      onChange={(e) =>
+                        setEdit({
+                          ...edit,
+                          stages: {
+                            ...edit.stages,
+                            [code]: {
+                              ...edit.stages[code],
+                              label: e.target.value,
+                            },
                           },
-                        },
-                      })
-                    }
-                    required
-                    maxLength={40}
-                  />
-                </label>
-                <label>
-                  Colour
-                  <input
-                    type="color"
-                    aria-label={`${code} colour`}
-                    value={edit.stages[code].color}
-                    onChange={(e) =>
-                      setEdit({
-                        ...edit,
-                        stages: {
-                          ...edit.stages,
-                          [code]: {
-                            ...edit.stages[code],
-                            color: e.target.value,
+                        })
+                      }
+                      required
+                      maxLength={40}
+                    />
+                  </label>
+                  <label>
+                    Colour
+                    <input
+                      type="color"
+                      aria-label={`${code} colour`}
+                      value={edit.stages[code].color}
+                      onChange={(e) =>
+                        setEdit({
+                          ...edit,
+                          stages: {
+                            ...edit.stages,
+                            [code]: {
+                              ...edit.stages[code],
+                              color: e.target.value,
+                            },
                           },
-                        },
-                      })
-                    }
-                  />
-                </label>
-              </div>
-            ))}
-            <p className="micro">
-              Colours must remain readable on white. Customer messages stay
-              disabled.
-            </p>
+                        })
+                      }
+                    />
+                  </label>
+                </div>
+              ))}
+              <p className="micro">
+                Colours must remain readable on white. Customer messages stay
+                disabled.
+              </p>
+            </details>
             {error && (
               <p role="alert" className="notice">
                 {error}

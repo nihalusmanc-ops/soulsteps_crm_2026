@@ -4,7 +4,7 @@ import { LockKeyhole, CheckCircle2 } from "lucide-react";
 import { session } from "./data/api";
 import { Button } from "./components/ui/button";
 
-export function AccountSecurity() {
+export function AccountSecurity({ embedded = false }: { embedded?: boolean }) {
   const status = useQuery({
     queryKey: ["password-status"],
     queryFn: session.passwordStatus,
@@ -14,9 +14,11 @@ export function AccountSecurity() {
     [saved, setSaved] = useState(false);
   return (
     <>
-      <div className="page-heading">
-        <h1>Account security</h1>
-      </div>
+      {!embedded && (
+        <div className="page-heading">
+          <h1>Account security</h1>
+        </div>
+      )}
       <section className="panel account-security">
         <LockKeyhole size={24} />
         <h2>
