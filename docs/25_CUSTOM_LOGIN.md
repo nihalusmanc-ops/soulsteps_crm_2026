@@ -8,7 +8,7 @@ The responsive Soulsteps sign-in page uses the existing wordmark and teal palett
 
 ## Security defaults
 
-- Passwords require 15–128 characters. Store only a random 32-byte salt and PBKDF2-HMAC-SHA256 digest with 600,000 iterations. Compare digests in constant time.
+- Passwords require 12–128 characters following the owner's explicit 27 October minimum-length change (see document 29). Store only a random 32-byte salt and PBKDF2-HMAC-SHA256 digest with 600,000 iterations. Compare digests in constant time.
 - Run the password derivation in an internal SQLite-backed `PasswordHasher` Durable Object using `nodejs_compat`. This supports the work factor without weakening it to fit a Free Worker request's CPU limit. The object has no public route or stored password state.
 - Use pinned `@noble/hashes` PBKDF2/SHA-256 inside that object. The hosted runtime also caps the native Node PBKDF2 API, so moving native hashing into an object alone is insufficient. The portable implementation preserves the same credential format and work factor; Node-generated fixtures verify compatibility.
 - Use a random 256-bit session token; store only its SHA-256 hash in D1. HTTPS uses a host-only Secure, HttpOnly, SameSite=Strict cookie. Sessions expire after 12 hours. Password changes revoke previous sessions; deactivation and role changes apply on the next request.
