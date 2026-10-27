@@ -925,6 +925,7 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
   const [visa, setVisa] = useViewParam("visa", "");
   const [group, setGroup] = useViewParam("group", "");
   const [source, setSource] = useViewParam("source", "");
+  const [sourceSection, setSourceSection] = useViewParam("sourceSection", "");
   const [missingValue, setMissingValue] = useViewParam("missing");
   const [responseValue, setResponseValue] = useViewParam("response");
   const missing = missingValue === "1",
@@ -948,6 +949,7 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
     visa,
     group,
     source,
+    sourceSection,
     missing,
     response,
     owner,
@@ -963,6 +965,7 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
         `${e.name} ${e.email} ${e.phone || ""}`
           .toLowerCase()
           .includes(q.toLowerCase()) &&
+        (!sourceSection || e.sourceSections?.includes(sourceSection)) &&
         (!paidSince ||
           e.payments.some(
             (p) => p.status === "verified" && p.date >= paidSince,
@@ -1106,10 +1109,35 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
               onChange={(e) => setSource(e.target.value)}
             >
               <option value="">All sources</option>
-              {["Facebook", "Instagram", "Manual"].map((v) => (
+              {Array.from(
+                new Set([
+                  "Facebook",
+                  "Instagram",
+                  "Manual",
+                  ...data.enquiries.map((e) => e.source),
+                ]),
+              ).map((v) => (
                 <option key={v}>{v}</option>
               ))}
             </select>
+            {data.enquiries.some((e) => e.sourceSections?.length) && (
+              <select
+                aria-label="Filter workbook section"
+                value={sourceSection}
+                onChange={(e) => setSourceSection(e.target.value)}
+              >
+                <option value="">All workbook sections</option>
+                {Array.from(
+                  new Set(
+                    data.enquiries.flatMap((e) => e.sourceSections || []),
+                  ),
+                )
+                  .sort()
+                  .map((section) => (
+                    <option key={section}>{section}</option>
+                  ))}
+              </select>
+            )}
             <label className="checkbox">
               <input
                 type="checkbox"

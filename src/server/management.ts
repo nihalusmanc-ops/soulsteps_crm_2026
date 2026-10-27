@@ -42,7 +42,10 @@ const audit = (
 routes.get("/settings", async (c) => c.json(await readSettings(c.env.DB)));
 routes.get("/notifications", async (c) => {
   const actor = c.get("identity");
-  const where = actor.role === "manager" ? "1=1" : "e.owner_id=?";
+  const where =
+    actor.role === "manager"
+      ? "1=1"
+      : "(e.owner_id=? OR json_extract(e.data,'$.shared')=1)";
   const rows = await c.env.DB.prepare(
     `SELECT n.id,n.job_id,n.enquiry_id,n.task_id,n.created_at,n.read_at,c.name,t.data AS task FROM in_app_notifications n JOIN tasks t ON t.id=n.task_id JOIN enquiries e ON e.id=n.enquiry_id JOIN customers c ON c.id=e.customer_id WHERE ${where} AND t.status='pending' AND e.stage NOT IN ('CONFIRMED','LOST','NOT_SUITABLE','ON_HOLD') ORDER BY n.created_at DESC LIMIT 50`,
   )
@@ -53,7 +56,7 @@ routes.get("/notifications", async (c) => {
 routes.post("/notifications/:id/read", async (c) => {
   const actor = c.get("identity");
   const result = await c.env.DB.prepare(
-    `UPDATE in_app_notifications SET read_at=? WHERE id=? AND enquiry_id IN (SELECT id FROM enquiries WHERE ${actor.role === "manager" ? "1=1" : "owner_id=?"})`,
+    `UPDATE in_app_notifications SET read_at=? WHERE id=? AND enquiry_id IN (SELECT id FROM enquiries WHERE ${actor.role === "manager" ? "1=1" : "(owner_id=? OR json_extract(data,'$.shared')=1)"})`,
   )
     .bind(
       new Date().toISOString(),

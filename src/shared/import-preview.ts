@@ -22,7 +22,7 @@ export const importDocumentSchema = z
       .array(
         z
           .object({
-            formVersion: z.enum(["v2", "v3", "unknown"]),
+            formVersion: z.enum(["v1", "v2", "v3", "v4", "unknown"]),
             cells: z.array(z.string().max(10000)).max(100),
             styles: z.array(z.string().max(500)).max(100),
             sourceCells: z

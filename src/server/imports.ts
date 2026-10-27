@@ -17,7 +17,7 @@ importRoutes.get("/management/imports/batches", async (c) =>
   c.json(
     (
       await c.env.DB.prepare(
-        "SELECT id,checksum,mapping_version,created_at FROM import_batches ORDER BY created_at DESC LIMIT 100",
+        "SELECT id,checksum,mapping_version,created_at,json_extract(raw_text,'$.sheet') AS sheet FROM import_batches ORDER BY created_at DESC LIMIT 100",
       ).all()
     ).results,
   ),

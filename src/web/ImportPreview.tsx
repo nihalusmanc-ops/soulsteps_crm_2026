@@ -147,7 +147,7 @@ function PersistentImports({
   const history = useQuery({
     queryKey: ["import-batches"],
     queryFn: () =>
-      request<{ id: string; created_at: string }[]>(
+      request<{ id: string; created_at: string; sheet?: string }[]>(
         "/management/imports/batches",
       ),
   });
@@ -198,7 +198,8 @@ function PersistentImports({
           <option value="">Choose a saved batch</option>
           {history.data?.map((b) => (
             <option key={b.id} value={b.id}>
-              {b.created_at} · {b.id.slice(7, 19)}
+              {b.sheet || b.id.slice(7, 19)} ·{" "}
+              {new Date(b.created_at).toLocaleDateString("en-GB")}
             </option>
           ))}
         </select>
@@ -213,7 +214,7 @@ function PersistentImports({
         <>
           <p role="status">
             {batch.data.counts.review} quarantined · {batch.data.counts.ready}{" "}
-            ready · {batch.data.counts.committed} created ·{" "}
+            ready · {batch.data.counts.committed} imported ·{" "}
             {batch.data.counts.skip} skipped · 0 updated
           </p>
           <p>

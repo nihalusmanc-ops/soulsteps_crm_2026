@@ -57,6 +57,9 @@ export type Enquiry = {
   id: string;
   customerId: string;
   ownerId?: string;
+  shared?: boolean;
+  sourceSections?: string[];
+  sourceForms?: string[];
   name: string;
   email: string;
   phone: string | null;

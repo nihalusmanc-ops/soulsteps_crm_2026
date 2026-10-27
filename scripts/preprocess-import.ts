@@ -21,7 +21,7 @@ const mappingSchema = z
       z.string(),
       z
         .object({
-          version: z.enum(["v2", "v3"]),
+          version: z.enum(["v1", "v2", "v3", "v4"]),
           columns: z
             .object({
               id: column,

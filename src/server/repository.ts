@@ -34,7 +34,10 @@ export class Repository {
   private scope = () =>
     this.actor.role === "manager"
       ? { sql: "1=1", values: [] }
-      : { sql: "e.owner_id=?", values: [this.actor.id] };
+      : {
+          sql: "(e.owner_id=? OR json_extract(e.data,'$.shared')=1)",
+          values: [this.actor.id],
+        };
   async state(id?: string): Promise<State> {
     const scope = this.scope();
     const condition = `${scope.sql}${id ? " AND e.id=?" : ""}`;
@@ -70,7 +73,7 @@ export class Repository {
         customerId: row.customer_id,
         tripId: row.trip_id,
         ownerId: row.owner_id,
-        owner: row.owner_name,
+        owner: data.shared ? "Shared team" : row.owner_name,
         name: row.name,
         email: row.email || "",
         phone: row.phone_e164,
@@ -407,7 +410,7 @@ export class Repository {
                 `SELECT id FROM users WHERE active=1 AND role='staff' ORDER BY ${this.actor.local ? "CASE WHEN id='DEMO-STAFF' THEN 0 ELSE 1 END," : ""}created_at,id LIMIT 1`,
               )
               .first<{ id: string }>()
-          )?.id;
+          )?.id || this.actor.id;
     if (!owner)
       throw new ApiError(
         400,
@@ -426,6 +429,7 @@ export class Repository {
       phone: customer?.phone_e164 || null,
       tripId: input.tripId,
       ownerId: owner,
+      shared: true,
       stage: "NEW",
       temperature: "unassessed",
       group: "unknown",
