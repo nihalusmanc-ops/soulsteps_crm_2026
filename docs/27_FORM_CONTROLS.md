@@ -11,3 +11,5 @@ Dropdown styling retains actual select/option semantics, keyboard/type-to-select
 `npm run test:controls` runs three browser tests against an isolated form harness with no API calls. It verifies calendar selection, controlled business-time changes, FormData, date-only input, leap day and month-crossing keyboard navigation, Cancel/Clear, direct typing, dropdown keyboard selection, responsive sizing at 768/390 pixels and Escape/focus in nested dialogs. Screenshots were inspected for the calendar and dropdown. Type checking/build pass.
 
 The control harness is under `tests/controls`, outside the production build entry; previews and screenshots are not deployed assets. It supplements the existing full CRM tests, which remain locally blocked by Windows Application Control denying the Cloudflare runtime. Early preview attempts were inconclusive; the dedicated browser runner subsequently passed all three checks. No real CRM records were changed during control testing.
+
+Published staging source `01534c8` as version `b11503ab-c8f6-44f3-a0d8-6e63f27fc959`. No database migration or production deployment was required.
