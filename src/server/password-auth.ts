@@ -15,7 +15,7 @@ const email = z
   .transform((v) => v.trim().toLowerCase());
 export const passwordSchema = z
   .string()
-  .min(15, "Use at least 15 characters.")
+  .min(12, "Use at least 12 characters.")
   .max(128);
 const encoder = new TextEncoder();
 const hex = (bytes: Uint8Array) =>

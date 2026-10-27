@@ -27,7 +27,7 @@ export function AccountSecurity({ embedded = false }: { embedded?: boolean }) {
             : "Set your password"}
         </h2>
         <p className="muted">
-          Use a unique passphrase of at least 15 characters.
+          Use a unique password of at least 12 characters.
         </p>
         {status.isError && (
           <p role="alert" className="notice">
@@ -97,7 +97,7 @@ export function AccountSecurity({ embedded = false }: { embedded?: boolean }) {
                 type="password"
                 name="password"
                 autoComplete="new-password"
-                minLength={15}
+                minLength={12}
                 maxLength={128}
                 required
               />
@@ -108,7 +108,7 @@ export function AccountSecurity({ embedded = false }: { embedded?: boolean }) {
                 type="password"
                 name="confirmation"
                 autoComplete="new-password"
-                minLength={15}
+                minLength={12}
                 maxLength={128}
                 required
               />
