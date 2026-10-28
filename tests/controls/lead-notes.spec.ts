@@ -129,24 +129,36 @@ test("notes are beside leads, filter by client status and open in a responsive k
   await page.keyboard.press("Escape");
   await expect(open).toBeFocused();
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("/enquiries/PREVIEW-LEAD");
+  await page
+    .locator(".enquiries-table tbody tr")
+    .first()
+    .locator("td")
+    .nth(2)
+    .click();
+  await expect(page).toHaveURL(/\/enquiries\/PREVIEW-LEAD/);
   await expect(page.locator("body")).not.toContainText(/\bworkbook\b/i);
   await expect(page.locator("header")).not.toContainText("Staff workspace");
   await expect(page.locator("header")).not.toContainText("Asia / Dubai");
   let saved: any;
-  await page.route("**/api/enquiries/PREVIEW-LEAD/commands", async route => {
+  await page.route("**/api/enquiries/PREVIEW-LEAD/commands", async (route) => {
     saved = route.request().postDataJSON().command;
     Object.assign(e, saved, { revision: 1 });
     await route.fulfill({ json: { ok: true } });
   });
   await page.getByRole("button", { name: "Edit details", exact: true }).click();
   const edit = page.getByRole("dialog", { name: "Edit details", exact: true });
-  await edit.getByLabel("Customer name", { exact: true }).fill("Fictional Updated");
+  await edit
+    .getByLabel("Customer name", { exact: true })
+    .fill("Fictional Updated");
   await edit.getByLabel("Phone", { exact: true }).fill("+971500000001");
   await edit.getByLabel("Self-drive option").selectOption("yes");
   await edit.getByLabel("Number of travellers").fill("3");
   await edit.getByRole("button", { name: /save/i }).click();
   await expect.poll(() => saved?.name).toBe("Fictional Updated");
-  expect(saved).toMatchObject({ phone: "+971500000001", selfDrive: "yes", travellers: 3 });
+  expect(saved).toMatchObject({
+    phone: "+971500000001",
+    selfDrive: "yes",
+    travellers: 3,
+  });
   expect(errors).toEqual([]);
 });

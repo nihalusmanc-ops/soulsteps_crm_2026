@@ -184,3 +184,9 @@
     padding: 20px;
   }
 }
+.enquiry-click-row {
+  cursor: pointer;
+}
+.enquiry-click-row:focus-within {
+  background: var(--muted, #f4f1ed);
+}

@@ -1261,7 +1261,22 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
           <>
             <div className="enquiry-cards">
               {filtered.map((e) => (
-                <article className="enquiry-mobile-card" key={e.id}>
+                <article
+                  className="enquiry-mobile-card enquiry-click-row"
+                  key={e.id}
+                  onClick={(event) => {
+                    if (
+                      (event.target as HTMLElement).closest(
+                        "a, button, input, select, textarea, summary, [role='button']",
+                      )
+                    )
+                      return;
+                    if (window.getSelection()?.toString()) return;
+                    event.currentTarget
+                      .querySelector<HTMLAnchorElement>("a.button")
+                      ?.click();
+                  }}
+                >
                   <div className="mobile-card-head">
                     <Customer e={e} />
                     <StageBadge stage={e.stage} />
@@ -1341,7 +1356,22 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
                 </thead>
                 <tbody>
                   {filtered.map((e) => (
-                    <tr key={e.id}>
+                    <tr
+                      key={e.id}
+                      className="enquiry-click-row"
+                      onClick={(event) => {
+                        if (
+                          (event.target as HTMLElement).closest(
+                            "a, button, input, select, textarea, summary, [role='button']",
+                          )
+                        )
+                          return;
+                        if (window.getSelection()?.toString()) return;
+                        event.currentTarget
+                          .querySelector<HTMLAnchorElement>("a.row-open")
+                          ?.click();
+                      }}
+                    >
                       <td>
                         <Customer e={e} />
                       </td>
