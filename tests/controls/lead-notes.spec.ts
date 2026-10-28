@@ -21,7 +21,7 @@ test("notes are beside leads, filter by client status and open in a responsive k
     response: "none",
     owner: "Shared team",
     shared: true,
-    source: "Synthetic preview",
+    source: "Meta workbook",
     createdAt: new Date().toISOString(),
     originalNote: "Synthetic notes only",
     originalGroup: "solo",
@@ -101,7 +101,7 @@ test("notes are beside leads, filter by client status and open in a responsive k
   });
   await open.click();
   const drawer = page.getByRole("dialog", {
-    name: "Client notes",
+    name: "Note",
     exact: true,
   });
   await expect(drawer).toContainText("Itinerary sent. Call on 20th October.");
@@ -113,7 +113,7 @@ test("notes are beside leads, filter by client status and open in a responsive k
   await page.keyboard.press("Escape");
   await expect(open).toBeFocused();
   await page.getByRole("button", { name: "More filters", exact: true }).click();
-  await page.getByLabel("Filter workbook colour").selectOption("yellow");
+  await page.getByLabel("Filter lead status").selectOption("yellow");
   await expect(
     page.getByRole("button", { name: /^View notes for/ }),
   ).toHaveCount(1);
@@ -128,5 +128,25 @@ test("notes are beside leads, filter by client status and open in a responsive k
   ).toBe(true);
   await page.keyboard.press("Escape");
   await expect(open).toBeFocused();
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/enquiries/PREVIEW-LEAD");
+  await expect(page.locator("body")).not.toContainText(/\bworkbook\b/i);
+  await expect(page.locator("header")).not.toContainText("Staff workspace");
+  await expect(page.locator("header")).not.toContainText("Asia / Dubai");
+  let saved: any;
+  await page.route("**/api/enquiries/PREVIEW-LEAD/commands", async route => {
+    saved = route.request().postDataJSON().command;
+    Object.assign(e, saved, { revision: 1 });
+    await route.fulfill({ json: { ok: true } });
+  });
+  await page.getByRole("button", { name: "Edit details", exact: true }).click();
+  const edit = page.getByRole("dialog", { name: "Edit details", exact: true });
+  await edit.getByLabel("Customer name", { exact: true }).fill("Fictional Updated");
+  await edit.getByLabel("Phone", { exact: true }).fill("+971500000001");
+  await edit.getByLabel("Self-drive option").selectOption("yes");
+  await edit.getByLabel("Number of travellers").fill("3");
+  await edit.getByRole("button", { name: /save/i }).click();
+  await expect.poll(() => saved?.name).toBe("Fictional Updated");
+  expect(saved).toMatchObject({ phone: "+971500000001", selfDrive: "yes", travellers: 3 });
   expect(errors).toEqual([]);
 });

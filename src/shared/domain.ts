@@ -71,6 +71,9 @@ export type Enquiry = {
   group: Group;
   visa: Visa;
   travellers: number | null;
+  selfDrive?: "yes" | "no" | "unknown";
+  desiredDeparture?: string;
+  bookingTimeframe?: string;
   rank: Rank | null;
   rankReason: string;
   rankRuleVersion?: number;
@@ -113,6 +116,20 @@ export type Trip = {
   publishedAt?: string;
 };
 export type State = { version: 1; enquiries: Enquiry[]; trips: Trip[] };
+export function selfDrivePreference(e: Enquiry): "yes" | "no" | "unknown" {
+  if (e.selfDrive) return e.selfDrive;
+  const answers = [
+    ...new Set(
+      Array.from(
+        e.originalNote.matchAll(
+          /do_you_want_self_drive_option\?\s*:\s*(yes|no)\b/gi,
+        ),
+        (m) => m[1].toLowerCase(),
+      ),
+    ),
+  ];
+  return answers.length === 1 ? (answers[0] as "yes" | "no") : "unknown";
+}
 export const money = (amount: number) =>
   new Intl.NumberFormat("en-AE", {
     style: "currency",
@@ -233,6 +250,25 @@ export const commandSchema = z.discriminatedUnion("type", [
     visa: z.enum(["all", "none", "some", "unknown"]),
     temperature: z.enum(["hot", "warm", "cold", "unassessed"]),
     availability: z.enum(["pending", "confirmed", "unavailable"]),
+    name: z.string().trim().min(1).max(100).optional(),
+    email: z.union([z.email().max(254), z.literal("")]).optional(),
+    phone: z
+      .union([z.string().regex(/^\+[1-9]\d{7,14}$/), z.literal("")])
+      .optional(),
+    travellers: z.number().int().min(1).max(1000).nullable().optional(),
+    selfDrive: z.enum(["yes", "no", "unknown"]).optional(),
+    desiredDeparture: z
+      .string()
+      .refine(
+        (v) =>
+          !v ||
+          (/^\d{4}-\d{2}-\d{2}$/.test(v) &&
+            Number.isFinite(Date.parse(v)) &&
+            new Date(v).toISOString().slice(0, 10) === v),
+        "Choose a valid date.",
+      )
+      .optional(),
+    bookingTimeframe: z.string().trim().max(300).optional(),
   }),
   z.object({
     type: z.literal("payment"),
@@ -378,6 +414,15 @@ export function applyCommand(
       e.availability = cmd.availability;
       if (e.group !== input.group)
         e.travellers = e.group === "couple" ? 2 : e.group === "solo" ? 1 : null;
+      if (cmd.name !== undefined) e.name = cmd.name;
+      if (cmd.email !== undefined) e.email = cmd.email;
+      if (cmd.phone !== undefined) e.phone = cmd.phone || null;
+      if (cmd.travellers !== undefined) e.travellers = cmd.travellers;
+      if (cmd.selfDrive !== undefined) e.selfDrive = cmd.selfDrive;
+      if (cmd.desiredDeparture !== undefined)
+        e.desiredDeparture = cmd.desiredDeparture;
+      if (cmd.bookingTimeframe !== undefined)
+        e.bookingTimeframe = cmd.bookingTimeframe;
       const fit = classify(e.group, e.visa, policy);
       if (!e.override) {
         e.rank = fit.rank;
@@ -385,7 +430,7 @@ export function applyCommand(
       }
       activity(
         "qualification",
-        "Trip fit, buying interest and availability updated independently.",
+        "Customer details and trip preferences updated. Original notes and offered quotation terms are preserved.",
       );
       break;
     }

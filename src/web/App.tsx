@@ -1,9 +1,11 @@
+import { selfDrivePreference } from "../shared/domain";
 import {
   LeadNotesDrawer,
   LeadNoteCard,
   WorkbookBadge,
   SourceFollowup,
   clientNote,
+  enquiryText,
 } from "./LeadNotes";
 import { leadColourLabels } from "../shared/workbook-context";
 import { DateTimeField } from "./components/ui/date-time-field";
@@ -450,13 +452,6 @@ export default function App() {
             <ChevronRight size={14} />
             <strong>{currentPage}</strong>
           </span>
-          <div className="topbar-right">
-            <span className="demo-pill">
-              <i />
-              {me.data?.local ? "Demo mode" : "Staff workspace"}
-            </span>
-            <span className="timezone">Asia / Dubai</span>
-          </div>
         </header>
         {me.data?.local && (
           <div className="demo-banner">
@@ -1079,7 +1074,7 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
         {extra && (
           <div className="extra-filters" id="enquiry-filters">
             <select
-              aria-label="Filter workbook colour"
+              aria-label="Filter lead status"
               value={clientStatus}
               onChange={(e) => setClientStatus(e.target.value)}
             >
@@ -1148,16 +1143,18 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
                   ...data.enquiries.map((e) => e.source),
                 ]),
               ).map((v) => (
-                <option key={v}>{v}</option>
+                <option key={v} value={v}>
+                  {enquiryText(v)}
+                </option>
               ))}
             </select>
             {data.enquiries.some((e) => e.sourceSections?.length) && (
               <select
-                aria-label="Filter workbook section"
+                aria-label="Filter form section"
                 value={sourceSection}
                 onChange={(e) => setSourceSection(e.target.value)}
               >
-                <option value="">All workbook sections</option>
+                <option value="">All form sections</option>
                 {Array.from(
                   new Set(
                     data.enquiries.flatMap((e) => e.sourceSections || []),
@@ -1332,7 +1329,7 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
                       Next action <ArrowDown size={12} />
                     </th>
                     <th>Trip / owner</th>
-                    <th>Client note / next step</th>
+                    <th>Note / next step</th>
                     <th />
                   </tr>
                 </thead>
@@ -1383,7 +1380,9 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
                       </td>
                       <td className="client-note-cell">
                         <p>{clientNote(e)}</p>
-                        {e.workbook && <small>{e.workbook.nextStep}</small>}
+                        {e.workbook && (
+                          <small>{enquiryText(e.workbook.nextStep)}</small>
+                        )}
                         <Button
                           size="sm"
                           variant="ghost"
@@ -1534,6 +1533,13 @@ function Detail() {
           visa: s("visa") as Enquiry["visa"],
           temperature: s("temperature") as Enquiry["temperature"],
           availability: s("availability") as Enquiry["availability"],
+          name: s("name").trim(),
+          email: s("email").trim(),
+          phone: s("phone").trim(),
+          travellers: s("travellers") ? Number(s("travellers")) : null,
+          selfDrive: s("selfDrive") as "yes" | "no" | "unknown",
+          desiredDeparture: s("desiredDeparture"),
+          bookingTimeframe: s("bookingTimeframe"),
         };
         break;
       case "payment":
@@ -1589,7 +1595,7 @@ function Detail() {
     call: "Log a call",
     task: taskId ? "Reschedule follow-up" : "Schedule follow-up",
     stage: "Change sales stage",
-    qualify: "Update qualification",
+    qualify: "Edit details",
     payment: "Record payment",
     verify: "Verify deposit funds",
     reverse: "Reverse verified payment",
@@ -1613,7 +1619,7 @@ function Detail() {
           <Avatar name={e.name} />
           <div>
             <div className="eyebrow">
-              {e.id} · {e.source}
+              {e.id} · {enquiryText(e.source)}
             </div>
             <h1>{e.name}</h1>
             <p>
@@ -1786,11 +1792,21 @@ function Detail() {
                     </div>
                     <div>
                       <span>Desired departure</span>
-                      <strong>Not yet qualified</strong>
+                      <strong>{e.desiredDeparture || "Not set"}</strong>
                     </div>
                     <div>
-                      <span>Self-drive / booking timeframe</span>
-                      <strong>Unknown / not recorded</strong>
+                      <span>Self-drive</span>
+                      <strong>
+                        {selfDrivePreference(e) === "yes"
+                          ? "Yes"
+                          : selfDrivePreference(e) === "no"
+                            ? "No"
+                            : "Not decided"}
+                      </strong>
+                    </div>
+                    <div>
+                      <span>Booking timeframe</span>
+                      <strong>{e.bookingTimeframe || "Not set"}</strong>
                     </div>
                   </div>
                   <div className="info-note">
@@ -1877,14 +1893,6 @@ function Detail() {
                       }
                     />
                   )}
-                  <details className="source-note">
-                    <summary>Original source context</summary>
-                    <p>{e.originalNote}</p>
-                    <small>
-                      Original group answer: {e.originalGroup} · preserved
-                      independently of edits
-                    </small>
-                  </details>
                 </>
               )}
               {tab === "activity" && (
@@ -2282,6 +2290,85 @@ function Detail() {
           )}
           {action === "qualify" && (
             <>
+              <h3>Contact</h3>
+              <label>
+                Customer name
+                <input
+                  name="name"
+                  defaultValue={e.name}
+                  required
+                  maxLength={100}
+                />
+              </label>
+              <div className="form-grid">
+                <label>
+                  Email
+                  <input
+                    type="email"
+                    name="email"
+                    defaultValue={e.email}
+                    maxLength={254}
+                  />
+                </label>
+                <label>
+                  Phone
+                  <input
+                    type="tel"
+                    name="phone"
+                    defaultValue={e.phone || ""}
+                    pattern="[+][1-9][0-9]{7,14}"
+                    placeholder="Include country code"
+                  />
+                </label>
+              </div>
+              <p className="micro">
+                Contact changes apply to this customer's enquiries.
+              </p>
+              <h3>Trip preferences</h3>
+              <div className="form-grid">
+                <label>
+                  Number of travellers
+                  <input
+                    name="travellers"
+                    type="number"
+                    min={1}
+                    max={1000}
+                    defaultValue={e.travellers ?? ""}
+                  />
+                </label>
+                <label>
+                  Self-drive option
+                  <select
+                    name="selfDrive"
+                    defaultValue={selfDrivePreference(e)}
+                  >
+                    <option value="unknown">Not decided</option>
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                  </select>
+                </label>
+              </div>
+              <div className="form-grid">
+                <label>
+                  Desired departure
+                  <DateTimeField
+                    type="date"
+                    pickerLabel="Desired departure"
+                    name="desiredDeparture"
+                    defaultValue={e.desiredDeparture || ""}
+                  />
+                </label>
+                <label>
+                  Booking timeframe
+                  <input
+                    name="bookingTimeframe"
+                    defaultValue={e.bookingTimeframe || ""}
+                    maxLength={300}
+                    placeholder="For example, next month"
+                  />
+                </label>
+              </div>
+              <h3>Qualification</h3>
               <label>
                 Travel party
                 <select name="group" defaultValue={e.group}>
@@ -2475,7 +2562,11 @@ function Timeline({ e, limit }: { e: Enquiry; limit?: number }) {
           </span>
           <div>
             <strong>{a.type.replaceAll("_", " ")}</strong>
-            <p>{a.text}</p>
+            <p>
+              {a.type === "source"
+                ? "Enquiry details received."
+                : enquiryText(a.text)}
+            </p>
             <small>
               {dateTime(a.at)} · {a.actor}
             </small>

@@ -207,6 +207,25 @@ export class Repository {
     }
     const token = crypto.randomUUID();
     const now = new Date().toISOString();
+    const contactChanged =
+      before.name !== after.name ||
+      before.email !== after.email ||
+      before.phone !== after.phone;
+    if (
+      contactChanged &&
+      after.phone &&
+      (await this.db
+        .prepare(
+          "SELECT id FROM customers WHERE phone_e164=? AND id<>? LIMIT 1",
+        )
+        .bind(after.phone, before.customerId)
+        .first())
+    )
+      throw new ApiError(
+        409,
+        "CONTACT_CONFLICT",
+        "That phone is already on another customer. Review the records before changing it.",
+      );
     const base = {
       ...after,
       tasks: undefined,
@@ -222,7 +241,7 @@ export class Repository {
     const writes: D1PreparedStatement[] = [
       this.db
         .prepare(
-          "UPDATE enquiries SET data=?,stage=?,revision=?,write_token=?,updated_at=? WHERE id=? AND revision=?",
+          "UPDATE enquiries SET data=?,stage=?,revision=?,write_token=?,updated_at=? WHERE id=? AND revision=? AND EXISTS(SELECT 1 FROM customers WHERE id=? AND name=? AND COALESCE(email,'')=? AND phone_e164 IS ?)",
         )
         .bind(
           json(base),
@@ -232,8 +251,26 @@ export class Repository {
           now,
           id,
           revision,
+          before.customerId,
+          before.name,
+          before.email,
+          before.phone,
         ),
     ];
+    if (contactChanged)
+      writes.push(
+        guarded(
+          `UPDATE customers SET name=?,email=?,phone_e164=?,contact_validity=CASE WHEN phone_e164 IS ? THEN contact_validity ELSE ? END WHERE id=? AND ${guard}`,
+          [
+            after.name,
+            after.email || null,
+            after.phone,
+            after.phone,
+            after.phone ? "submitted" : "unknown",
+            before.customerId,
+          ],
+        ),
+      );
     for (const task of after.tasks) {
       const old = before.tasks.find((t) => t.id === task.id);
       if (!old)
@@ -345,7 +382,13 @@ export class Repository {
           command.type,
           requestId,
           now,
-          json({ fromRevision: revision, toRevision: after.revision }),
+          json({
+            fromRevision: revision,
+            toRevision: after.revision,
+            ...(contactChanged
+              ? { customerId: before.customerId, contactChanged: true }
+              : {}),
+          }),
         ],
       ),
     );

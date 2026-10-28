@@ -94,6 +94,31 @@ beforeEach(() => {
   } as unknown as D1Database;
 });
 afterEach(() => sqlite.close());
+it("persists contact and trip edits while preserving original notes", async () => {
+  const repository = new Repository(db, staff);
+  const before = await repository.enquiry("SHARED");
+  await repository.command("SHARED", 0, {
+    type: "qualify", group: "family", visa: "unknown", temperature: "warm",
+    availability: "pending", name: "Fictional Updated", email: "updated@example.invalid",
+    phone: "+971500000001", travellers: 3, selfDrive: "yes",
+    desiredDeparture: "2027-02-15", bookingTimeframe: "Next month",
+  }, "edit-details", "edit-fingerprint", "edit-request");
+  const after = await repository.enquiry("SHARED");
+  expect(after).toMatchObject({ name: "Fictional Updated", email: "updated@example.invalid",
+    phone: "+971500000001", travellers: 3, selfDrive: "yes",
+    desiredDeparture: "2027-02-15", bookingTimeframe: "Next month", revision: 1 });
+  expect(after.originalNote).toBe(before.originalNote);
+  expect(sqlite.prepare("SELECT contact_validity FROM customers WHERE id='SHARED'").get()!.contact_validity).toBe("submitted");
+});
+it("rejects contact numbers already used by another customer", async () => {
+  sqlite.prepare("UPDATE customers SET phone_e164=? WHERE id='PRIVATE'").run("+971500000002");
+  const repository = new Repository(db, staff);
+  await expect(repository.command("SHARED", 0, {
+    type: "qualify", group: "solo", visa: "unknown", temperature: "warm",
+    availability: "pending", phone: "+971500000002",
+  }, "duplicate-contact", "duplicate-fingerprint", "duplicate-request")).rejects.toMatchObject({ status: 409 });
+  expect((await repository.enquiry("SHARED")).revision).toBe(0);
+});
 const staff = {
   id: "STAFF-A",
   name: "Fictional staff A",

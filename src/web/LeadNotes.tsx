@@ -12,17 +12,23 @@ import {
 import { leadColourLabels } from "../shared/workbook-context";
 import { Button } from "./components/ui/button";
 
+export const enquiryText = (text: string) =>
+  text
+    .replace(/Meta workbook/gi, "Meta")
+    .replace(/Workbook import/gi, "Import")
+    .replace(/\bworkbooks\b/gi, "records")
+    .replace(/\bworkbook\b/gi, "record");
 export const clientNote = (e: Enquiry) =>
-  e.activities.find((a) => a.type === "note")?.text ||
-  e.workbook?.latestNote ||
-  (e.workbook
-    ? "No staff note recorded in the workbook."
-    : e.originalNote || "No client note yet.");
+  enquiryText(
+    e.activities.find((a) => a.type === "note")?.text ||
+      e.workbook?.latestNote ||
+      (e.workbook ? "No note recorded yet." : e.originalNote || "No note yet."),
+  );
 export function WorkbookBadge({ e }: { e: Enquiry }) {
   return e.workbook ? (
     <span
       className={`workbook-badge colour-${e.workbook.colour}`}
-      title="Client-defined workbook colour status"
+      title="Lead status"
     >
       {leadColourLabels[e.workbook.colour]}
     </span>
@@ -33,7 +39,7 @@ export function SourceFollowup({ e }: { e: Enquiry }) {
   if (!followup) return null;
   return (
     <div className="source-followup">
-      <strong>Workbook follow-up</strong>
+      <strong>Follow-up</strong>
       <span>
         {followup.date
           ? new Date(followup.date + "T12:00:00Z").toLocaleDateString("en-GB", {
@@ -42,9 +48,9 @@ export function SourceFollowup({ e }: { e: Enquiry }) {
               year: "numeric",
               timeZone: "UTC",
             }) + (followup.time ? ` · ${followup.time} Dubai` : "")
-          : followup.text}
+          : enquiryText(followup.text)}
       </span>
-      <small>{followup.reason}</small>
+      <small>{enquiryText(followup.reason)}</small>
     </div>
   );
 }
@@ -57,15 +63,17 @@ export function LeadNoteCard({ e }: { e: Enquiry }) {
       : e.workbook?.nextStep || "Agree the next step with the customer.";
   return (
     <section className="lead-note-content">
-      <h3>Client note</h3>
+      <h3>Note</h3>
       <p className="client-note-text">{clientNote(e)}</p>
       <div className="note-next-step">
         <strong>Next step</strong>
-        <p>{next}</p>
+        <p>{enquiryText(next)}</p>
       </div>
       <SourceFollowup e={e} />
       {!!e.workbook?.reviewReasons.length && (
-        <p className="notice">{e.workbook.reviewReasons.join(" ")}</p>
+        <p className="notice">
+          {enquiryText(e.workbook.reviewReasons.join(" "))}
+        </p>
       )}
     </section>
   );
@@ -96,11 +104,8 @@ export function LeadNotesDrawer({
           }}
         >
           <div className="section-head">
-            <Dialog.Title>Client notes</Dialog.Title>
-            <Dialog.Close
-              className="icon-button"
-              aria-label="Close client notes"
-            >
+            <Dialog.Title>Note</Dialog.Title>
+            <Dialog.Close className="icon-button" aria-label="Close note">
               <X size={20} />
             </Dialog.Close>
           </div>
@@ -118,9 +123,9 @@ export function LeadNotesDrawer({
                     .filter((a) => a.type === "note")
                     .map((a) => (
                       <div key={a.id}>
-                        <p>{a.text}</p>
+                        <p>{enquiryText(a.text)}</p>
                         <small>
-                          {a.actor} · {dateTime(a.at)}
+                          {enquiryText(a.actor)} · {dateTime(a.at)}
                         </small>
                       </div>
                     ))}
@@ -128,15 +133,10 @@ export function LeadNotesDrawer({
               )}
               {!!enquiry.workbook?.notes.length && (
                 <details className="note-history">
-                  <summary>
-                    All workbook notes ({enquiry.workbook.notes.length})
-                  </summary>
+                  <summary>All notes ({enquiry.workbook.notes.length})</summary>
                   {enquiry.workbook.notes.map((n, i) => (
                     <div key={i}>
-                      <p>{n.text}</p>
-                      <small>
-                        {n.sheet} · {n.cell}
-                      </small>
+                      <p>{enquiryText(n.text)}</p>
                     </div>
                   ))}
                 </details>
