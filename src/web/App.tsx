@@ -1091,11 +1091,15 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
               onChange={(e) => setOwner(e.target.value)}
             >
               <option value="">All owners</option>
-              {Array.from(new Set(data.enquiries.map((e) => e.owner))).map(
-                (name) => (
-                  <option key={name}>{name}</option>
+              {Array.from(
+                new Set(
+                  data.enquiries
+                    .filter((e) => !e.shared && e.owner !== "Shared team")
+                    .map((e) => e.owner),
                 ),
-              )}
+              ).map((name) => (
+                <option key={name}>{name}</option>
+              ))}
             </select>
             <select
               aria-label="Filter trip"
@@ -1266,7 +1270,9 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
                     <span>
                       {data.trips.find((t) => t.id === e.tripId)?.destination}
                     </span>
-                    <span>{e.owner}</span>
+                    {!e.shared && e.owner !== "Shared team" && (
+                      <span>{e.owner}</span>
+                    )}
                   </div>
                   <Fit e={e} />
                   <p className="mobile-client-note">{clientNote(e)}</p>
@@ -1328,7 +1334,7 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
                     <th>
                       Next action <ArrowDown size={12} />
                     </th>
-                    <th>Trip / owner</th>
+                    <th>Trip</th>
                     <th>Note / next step</th>
                     <th />
                   </tr>
@@ -1376,7 +1382,9 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
                           {data.trips.find((t) => t.id === e.tripId)
                             ?.destination || "Unassigned trip"}
                         </strong>
-                        <small>{e.owner}</small>
+                        {!e.shared && e.owner !== "Shared team" && (
+                          <small>{e.owner}</small>
+                        )}
                       </td>
                       <td className="client-note-cell">
                         <p>{clientNote(e)}</p>
@@ -1436,7 +1444,9 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
                       <strong>{e.name}</strong>
                       <small>
                         {data.trips.find((t) => t.id === e.tripId)?.destination}{" "}
-                        · {e.owner}
+                        {!e.shared && e.owner !== "Shared team"
+                          ? `· ${e.owner}`
+                          : ""}
                       </small>
                       <Fit e={e} />
                       <div>
@@ -1651,7 +1661,9 @@ function Detail() {
         <StageBadge stage={e.stage} />
         <WorkbookBadge e={e} />
         <span>{trip?.name}</span>
-        <span>Owner: {e.owner}</span>
+        {!e.shared && e.owner !== "Shared team" && (
+          <span>Owner: {e.owner}</span>
+        )}
         <span>Created {dateTime(e.createdAt)}</span>
       </div>
       {data.enquiries.filter((other) => other.customerId === e.customerId)
@@ -3228,7 +3240,9 @@ function Overview() {
               <Link to={"/enquiries/" + e.id} className="source-row" key={e.id}>
                 <span>
                   {e.name}
-                  <small>{e.owner}</small>
+                  {!e.shared && e.owner !== "Shared team" && (
+                    <small>{e.owner}</small>
+                  )}
                 </span>
                 <strong>
                   {Math.floor(
