@@ -266,7 +266,7 @@ test("seen reminders disappear immediately and return when saving fails", async 
       json: { message: "Reminder update failed" },
     });
   });
-  await page.goto("/");
+  await page.goto("/today");
   await page.getByRole("button", { name: "Mark seen", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Due reminders", exact: true }),

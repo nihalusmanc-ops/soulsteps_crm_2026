@@ -9,8 +9,20 @@ import type { Identity } from "../shared/api";
 import { useViewParam } from "./components/ui/workspace";
 import { AccountSecurity } from "./AccountSecurity";
 import { Management } from "./Management";
+import { RuleManager } from "./Management";
+import { Modal } from "./components/ui/modal";
+import { Button } from "./components/ui/button";
+import { useState } from "react";
+import type { Trip } from "../shared/domain";
 
-export function SettingsPage({ identity }: { identity: Identity }) {
+export function SettingsPage({
+  identity,
+  trips,
+}: {
+  identity: Identity;
+  trips: Trip[];
+}) {
+  const [ruleTrip, setRuleTrip] = useState<Trip | null>(null);
   const [section, select] = useViewParam("section", "profile");
   const manager = identity.role === "manager";
   const primary = [
@@ -26,7 +38,15 @@ export function SettingsPage({ identity }: { identity: Identity }) {
     "profile",
     "security",
     ...(manager
-      ? ["settings", "imports", "meta", "health", "audit", "release"]
+      ? [
+          "settings",
+          "priorities",
+          "imports",
+          "meta",
+          "health",
+          "audit",
+          "release",
+        ]
       : []),
   ];
   const current = allowed.includes(section) ? section : "profile";
@@ -70,6 +90,7 @@ export function SettingsPage({ identity }: { identity: Identity }) {
                 Workspace settings
               </button>
               {item("imports", "Import enquiries")}
+              {item("priorities", "Trip priorities")}
               {item("meta", "Meta integration")}
               <details
                 className="advanced-settings"
@@ -120,11 +141,41 @@ export function SettingsPage({ identity }: { identity: Identity }) {
             </section>
           ) : current === "security" ? (
             <AccountSecurity embedded />
+          ) : current === "priorities" && manager ? (
+            <section className="settings-section">
+              <h2>Trip priorities</h2>
+              <p className="muted">
+                Set the first-call order for each trip. Family and Friends share
+                the small-group priorities.
+              </p>
+              {trips.map((trip) => (
+                <div className="setting-row" key={trip.id}>
+                  <strong>{trip.name}</strong>
+                  <Button variant="outline" onClick={() => setRuleTrip(trip)}>
+                    Edit priorities
+                  </Button>
+                </div>
+              ))}
+            </section>
           ) : manager ? (
             <Management embedded />
           ) : null}
         </div>
       </div>
+      <Modal
+        open={!!ruleTrip}
+        onClose={() => setRuleTrip(null)}
+        title={ruleTrip ? `${ruleTrip.name} · priorities` : "Trip priorities"}
+        description="Review and save the calling priorities for this trip."
+      >
+        {ruleTrip && (
+          <RuleManager
+            key={ruleTrip.id}
+            tripId={ruleTrip.id}
+            done={() => setRuleTrip(null)}
+          />
+        )}
+      </Modal>
     </div>
   );
 }

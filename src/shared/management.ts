@@ -51,17 +51,17 @@ export const defaultRules: Rule[] = [
     id: `${group}-${visa}`,
     group,
     visa,
-    enabled: !(["family", "friends"].includes(group) && visa === "all"),
+    enabled: true,
     rank: (group === "couple"
       ? visa === "all"
         ? "P1"
         : "P2"
       : group === "solo"
         ? visa === "all"
-          ? "P4"
+          ? "P3"
           : "P5"
         : visa === "all"
-          ? "P3"
+          ? "P4"
           : "P6") as Rank,
     explanation: `${group}; ${visa === "all" ? "all report Schengen visas" : "no visas reported"}`,
   })),
@@ -74,7 +74,10 @@ export function evaluateRules(rules: Rule[], group: Group, visa: Visa) {
         "Needs qualification: confirm group and each traveller’s visa status.",
     };
   const matching = rules.filter(
-    (r) => r.enabled && r.group === group && r.visa === visa,
+    (r) =>
+      r.enabled &&
+      r.group === (group === "friends" ? "family" : group) &&
+      r.visa === visa,
   );
   if (matching.length !== 1)
     return {
@@ -86,7 +89,7 @@ export function evaluateRules(rules: Rule[], group: Group, visa: Visa) {
 export function ruleExamples(rules: Rule[]) {
   return (["couple", "solo", "family", "friends", "unknown"] as const).flatMap(
     (group) =>
-      (["all", "none", "some", "unknown"] as const).map((visa) => ({
+      (["all", "none", "unknown"] as const).map((visa) => ({
         group,
         visa,
         ...evaluateRules(rules, group, visa),

@@ -3,6 +3,7 @@ import {
   type Command,
   type State,
   type Trip,
+  type Group,
 } from "../../shared/domain";
 import { seed } from "../../shared/seed";
 export { seed } from "../../shared/seed";
@@ -16,6 +17,11 @@ export interface CrmRepository {
     tripId: string,
     customerId?: string,
     contact?: { email: string; phone: string },
+    qualification?: {
+      group: Group;
+      visa: "all" | "none" | "unknown";
+      travellers: number | null;
+    },
   ): Promise<string>;
   reset(): Promise<void>;
 }

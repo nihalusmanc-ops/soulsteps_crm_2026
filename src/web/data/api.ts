@@ -77,12 +77,18 @@ export const apiRepository: CrmRepository = {
     tripId: string,
     customerId?: string,
     contact?: { email: string; phone: string },
+    qualification?: {
+      group: import("../../shared/domain").Group;
+      visa: "all" | "none" | "unknown";
+      travellers: number | null;
+    },
   ) => {
     const response = await mutate<{ id: string }>("/enquiries", {
       name,
       tripId,
       ...(customerId ? { customerId } : {}),
       ...(!customerId && contact ? contact : {}),
+      ...qualification,
     });
     return response.id;
   },

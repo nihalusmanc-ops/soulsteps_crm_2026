@@ -378,7 +378,7 @@ routes.post("/management/trips/:id/rules/publish", async (c) => {
     "EXISTS(SELECT 1 FROM trips WHERE id=? AND json_extract(data,'$.writeToken')=?)";
   const writes = [
     c.env.DB.prepare(
-      "UPDATE trips SET version=?,data=? WHERE id=? AND version=? AND (SELECT json_group_array(json_array(id,revision)) FROM (SELECT id,revision FROM enquiries WHERE trip_id=? ORDER BY id))=?",
+      "UPDATE trips SET version=?,data=? WHERE id=? AND version=? AND (SELECT json_group_array(json_array(id,revision)) FROM (SELECT id,revision FROM enquiries WHERE trip_id=? AND json_extract(data,'$.deletedAt') IS NULL ORDER BY id))=?",
     ).bind(
       next.version,
       JSON.stringify(stored),

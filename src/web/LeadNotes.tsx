@@ -1,3 +1,4 @@
+import { leadColour, callColours, currentNote } from "../shared/calling";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Link } from "react-router-dom";
 import { X } from "lucide-react";
@@ -19,20 +20,15 @@ export const enquiryText = (text: string) =>
     .replace(/\bworkbooks\b/gi, "records")
     .replace(/\bworkbook\b/gi, "record");
 export const clientNote = (e: Enquiry) =>
-  enquiryText(
-    e.activities.find((a) => a.type === "note")?.text ||
-      e.workbook?.latestNote ||
-      (e.workbook ? "No note recorded yet." : e.originalNote || "No note yet."),
-  );
+  enquiryText(currentNote(e) || "No note yet.");
 export function WorkbookBadge({ e }: { e: Enquiry }) {
-  return e.workbook ? (
-    <span
-      className={`workbook-badge colour-${e.workbook.colour}`}
-      title="Lead status"
-    >
-      {leadColourLabels[e.workbook.colour]}
+  const colour = leadColour(e);
+  if (colour === "none") return null;
+  return (
+    <span className={"workbook-badge call-status-" + colour}>
+      {colour === "green" ? "Converted - deposit added" : callColours[colour]}
     </span>
-  ) : null;
+  );
 }
 export function SourceFollowup({ e }: { e: Enquiry }) {
   const followup = e.workbook?.followup;

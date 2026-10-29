@@ -18,6 +18,7 @@ export function canPreview(command: Command) {
     "stage",
     "qualify",
     "payment",
+    "saveCall",
   ].includes(command.type);
 }
 export function previewWrite(

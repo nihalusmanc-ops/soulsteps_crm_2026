@@ -7,6 +7,8 @@ import { Hono } from "hono";
 import { managementRoutes } from "../src/server/management";
 import type { AppEnv } from "../src/server/types";
 import { createTripSchema } from "../src/shared/api";
+import { defaultRules } from "../src/shared/management";
+import { callingList, leadColour } from "../src/shared/calling";
 
 let sqlite: DatabaseSync, db: D1Database;
 class Statement {
@@ -98,6 +100,175 @@ beforeEach(() => {
   } as unknown as D1Database;
 });
 afterEach(() => sqlite.close());
+it("persists a shared initial call, replaces the note and schedules follow-up atomically with replay/conflict protection", async () => {
+  const repo = new Repository(db, staff);
+  const e = await repo.enquiry("SHARED");
+  const command = {
+    type: "saveCall" as const,
+    colour: "orange" as const,
+    note: "Interested; discuss dates.",
+    followup: "2026-11-05T10:00:00Z",
+  };
+  await repo.command(
+    e.id,
+    e.revision,
+    command,
+    "calling-request-1",
+    "call-fingerprint",
+    "request-1",
+  );
+  const after = await repo.enquiry(e.id);
+  expect(after.currentNote).toBe(command.note);
+  expect(callingList(after)).toBe("followups");
+  expect(after.activities.filter((a) => a.type === "call")).toHaveLength(1);
+  expect(after.tasks.at(-1)?.due).toBe("2026-11-05T10:00:00.000Z");
+  await repo.command(
+    e.id,
+    e.revision,
+    command,
+    "calling-request-1",
+    "call-fingerprint",
+    "request-2",
+  );
+  expect((await repo.enquiry(e.id)).activities).toEqual(after.activities);
+  await expect(
+    repo.command(
+      e.id,
+      e.revision,
+      command,
+      "calling-request-2",
+      "other-fingerprint",
+      "request-3",
+    ),
+  ).rejects.toMatchObject({ code: "REVISION_CONFLICT" });
+  await repo.command(
+    e.id,
+    after.revision,
+    { type: "saveCall", colour: "red", note: "Asked us not to call again." },
+    "calling-request-3",
+    "red-fingerprint",
+    "request-4",
+  );
+  const closed = await repo.enquiry(e.id);
+  expect(leadColour(closed)).toBe("red");
+  expect(closed.tasks.every((t) => t.status !== "pending")).toBe(true);
+  expect(closed.activities.some((a) => a.text === command.note)).toBe(true);
+});
+it("creates qualified enquiries using only their selected trip's active rules", async () => {
+  const trip = seed().trips[0];
+  sqlite
+    .prepare("UPDATE trips SET data=? WHERE id=?")
+    .run(
+      JSON.stringify({
+        ...trip,
+        activeRules: defaultRules,
+        activeRuleVersion: 2,
+      }),
+      trip.id,
+    );
+  const repo = new Repository(db, staff);
+  const created = await repo.create(
+    {
+      name: "Sample friends",
+      tripId: trip.id,
+      group: "friends",
+      visa: "all",
+      travellers: 4,
+    },
+    "qualified-create-key",
+    "qualified-fingerprint",
+    "request-1",
+  );
+  expect(await repo.enquiry(String(created.id))).toMatchObject({
+    rank: "P4",
+    rankRuleVersion: 2,
+    group: "friends",
+    travellers: 4,
+  });
+});
+it("publishes trip priorities after archived enquiries are excluded from the preview snapshot", async () => {
+  const app = new Hono<AppEnv>();
+  app.use("*", async (c, next) => {
+    c.set("identity", { ...staff, role: "manager" });
+    c.set("requestId", "rule-request");
+    await next();
+  });
+  app.route("/", managementRoutes);
+  sqlite
+    .prepare(
+      "UPDATE enquiries SET data=json_set(data,'$.deletedAt','2026-10-30T00:00:00Z') WHERE id='PRIVATE'",
+    )
+    .run();
+  const tripId = seed().trips[0].id;
+  const preview = await app.request(
+    `https://example.invalid/management/trips/${tripId}/rules/preview`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rules: defaultRules }),
+    },
+    { DB: db } as any,
+  );
+  expect(preview.status).toBe(200);
+  const body = (await preview.json()) as { id: string; rows: unknown[] };
+  expect(body.rows).toHaveLength(1);
+  const publish = await app.request(
+    `https://example.invalid/management/trips/${tripId}/rules/publish`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": "publish-calling-rules-key",
+      },
+      body: JSON.stringify({ previewId: body.id, reviewed: true }),
+    },
+    { DB: db } as any,
+  );
+  expect(publish.status).toBe(200);
+  expect(
+    (await new Repository(db, staff).state()).trips[0].activeRules,
+  ).toEqual(defaultRules);
+});
+it("allows managers to remove review samples with synthetic deposits while protecting real financial records", async () => {
+  sqlite
+    .prepare(
+      "UPDATE enquiries SET data=json_set(data,'$.sample',json('true')) WHERE id='SHARED'",
+    )
+    .run();
+  const repo = new Repository(db, { ...staff, role: "manager" });
+  let e = await repo.enquiry("SHARED");
+  await repo.command(
+    e.id,
+    e.revision,
+    { type: "quote", total: 100000, deposit: 20000, terms: "Sample terms" },
+    "sample-quote-key",
+    "samplequote",
+    "req-1",
+  );
+  e = await repo.enquiry(e.id);
+  await repo.command(
+    e.id,
+    e.revision,
+    {
+      type: "payment",
+      amount: 20000,
+      date: new Date().toISOString(),
+      reference: "SAMPLE",
+    },
+    "sample-payment-key",
+    "samplepayment",
+    "req-2",
+  );
+  e = await repo.enquiry(e.id);
+  expect(leadColour(e)).toBe("green");
+  await repo.remove("enquiry", e.id, e.revision, "sample-delete-key", "req-3");
+  expect((await repo.state()).enquiries).toHaveLength(1);
+  expect(
+    sqlite
+      .prepare("SELECT count(*) n FROM payments WHERE enquiry_id='SHARED'")
+      .get()!.n,
+  ).toBe(1);
+});
 it("creates a full trip draft atomically, preserves fields and replays the same creation", async () => {
   const app = new Hono<AppEnv>();
   app.onError((error, c) =>

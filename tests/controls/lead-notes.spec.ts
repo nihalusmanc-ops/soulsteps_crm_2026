@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import type { Enquiry, State } from "../../src/shared/domain";
 import { defaultSettings } from "../../src/shared/management";
-test("notes are beside leads, filter by client status and open in a responsive keyboard-accessible drawer", async ({
+test("inline notes, profile editing, customer reuse and protected deletion remain usable", async ({
   page,
 }) => {
   let role = "manager";
@@ -105,50 +105,20 @@ test("notes are beside leads, filter by client status and open in a responsive k
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/enquiries");
-  const open = page.getByRole("button", {
-    name: `View notes for ${e.name}`,
-    exact: true,
-  });
-  await open.click();
-  const drawer = page.getByRole("dialog", {
-    name: "Note",
-    exact: true,
-  });
-  await expect(drawer).toContainText("Itinerary sent. Call on 20th October.");
-  await expect(drawer).toContainText("20 Oct 2026");
-  await expect(drawer).toContainText(
-    "Follow up on the itinerary already sent.",
-  );
-  await page.screenshot({ path: ".wrangler/lead-notes-desktop.png" });
-  await page.keyboard.press("Escape");
-  await expect(open).toBeFocused();
-  await page.getByRole("button", { name: "More filters", exact: true }).click();
-  await page.getByLabel("Filter lead status").selectOption("yellow");
   await expect(
-    page.getByRole("button", { name: /^View notes for/ }),
-  ).toHaveCount(1);
+    page.getByLabel("Note for " + e.name, { exact: true }),
+  ).toHaveValue("Itinerary sent. Call on 20th October.");
   await page.setViewportSize({ width: 390, height: 844 });
-  await open.click();
-  await expect(drawer).toBeVisible();
-  await page.screenshot({ path: ".wrangler/lead-notes-mobile.png" });
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
-  await page.keyboard.press("Escape");
-  await expect(open).toBeFocused();
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page
-    .locator(".enquiries-table tbody tr")
-    .first()
-    .locator("td")
-    .nth(2)
-    .click();
+  await page.locator(".call-row").first().locator(".call-trip").click();
   await expect(page).toHaveURL(/\/enquiries\/PREVIEW-LEAD/);
   await expect(page.locator("body")).not.toContainText(/\bworkbook\b/i);
   await expect(page.locator("header")).not.toContainText("Staff workspace");
-  await expect(page.locator("header")).not.toContainText("Asia / Dubai");
   let saved: any;
   await page.route("**/api/enquiries/PREVIEW-LEAD/commands", async (route) => {
     saved = route.request().postDataJSON().command;

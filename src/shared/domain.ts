@@ -1,6 +1,7 @@
 import type { Rule } from "./management";
 import type { WorkbookContext } from "./workbook-context";
 import { z } from "zod";
+import type { CallColour } from "./calling";
 export const stages = {
   NEW: "New enquiry",
   QUALIFYING: "Initial discussion",
@@ -84,6 +85,10 @@ export type Enquiry = {
   source: string;
   createdAt: string;
   lastContact?: string;
+  initialCallAt?: string;
+  callColour?: CallColour;
+  currentNote?: string;
+  sample?: boolean;
   originalNote: string;
   originalGroup: string;
   requestedCallback?: string;
@@ -154,33 +159,33 @@ export const dateTime = (value: string) =>
 export function classify(
   group: Group,
   visa: Visa,
-  policy: Trip["groupVisaPolicy"] = "review",
+  _policy: Trip["groupVisaPolicy"] = "review",
 ): { rank: Rank | null; reason: string } {
   if (group === "unknown" || visa === "unknown" || visa === "some")
     return {
       rank: null,
-      reason:
-        "Needs qualification: confirm group and each traveller’s visa status.",
+      reason: "Needs qualification: confirm travel group and Schengen answer.",
     };
-  if (group === "couple")
-    return {
-      rank: visa === "all" ? "P1" : "P2",
-      reason: `Couple · ${visa === "all" ? "all report Schengen visas" : "no Schengen visas reported"} · draft policy`,
-    };
-  if (group === "solo")
-    return {
-      rank: visa === "all" ? "P4" : "P5",
-      reason: `Solo · ${visa === "all" ? "Schengen visa reported" : "no Schengen visa reported"} · draft policy`,
-    };
-  if (visa === "all" && policy === "review")
-    return {
-      rank: null,
-      reason:
-        "Needs qualification: manager must review family/friends P3 versus P6 policy.",
-    };
+  const rank: Rank =
+    group === "couple"
+      ? visa === "all"
+        ? "P1"
+        : "P2"
+      : group === "solo"
+        ? visa === "all"
+          ? "P3"
+          : "P5"
+        : visa === "all"
+          ? "P4"
+          : "P6";
   return {
-    rank: visa === "all" ? (policy as Rank) : "P6",
-    reason: "Assessed group · draft policy",
+    rank,
+    reason:
+      (group === "friends" || group === "family"
+        ? "Family / small group"
+        : group) +
+      " / Schengen: " +
+      (visa === "all" ? "Yes" : "No"),
   };
 }
 export const verifiedTotal = (e: Enquiry) =>
@@ -210,6 +215,20 @@ export const nextTask = (e: Enquiry) =>
     .sort((a, b) => a.due.localeCompare(b.due))[0];
 const text = z.string().trim().min(1).max(4000);
 export const commandSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("saveCall"),
+    colour: z.enum([
+      "orange",
+      "yellow",
+      "purple",
+      "pink",
+      "cyan",
+      "blue",
+      "red",
+    ]),
+    note: text,
+    followup: z.string().optional(),
+  }),
   z.object({ type: z.literal("note"), text }),
   z.object({
     type: z.literal("call"),
@@ -328,7 +347,45 @@ export function applyCommand(
     activity("task", `${type} scheduled for ${dateTime(due)} (Dubai). ${note}`);
   };
   switch (cmd.type) {
+    case "saveCall": {
+      if (
+        e.booking ||
+        e.payments.some((p) => p.status !== "reversed" && p.amount > 0)
+      )
+        throw new Error(
+          "This enquiry has a deposit or booking. Update its note from the profile.",
+        );
+      if (cmd.colour === "red" && cmd.followup)
+        throw new Error(
+          "Disqualified enquiries cannot have a sales follow-up.",
+        );
+      if (cmd.followup) dueDate(cmd.followup);
+      e.initialCallAt ||= now;
+      e.lastContact = now;
+      e.callColour = cmd.colour;
+      e.currentNote = cmd.note;
+      e.temperature =
+        cmd.colour === "orange"
+          ? "hot"
+          : cmd.colour === "yellow"
+            ? "warm"
+            : "cold";
+      e.response = ["cyan", "blue"].includes(cmd.colour) ? "no_answer" : "none";
+      if (cmd.colour === "red") e.stage = "LOST";
+      else if (["NEW", "LOST", "NOT_SUITABLE", "ON_HOLD"].includes(e.stage))
+        e.stage = "QUALIFYING";
+      e.tasks
+        .filter((t) => t.status === "pending")
+        .forEach((t) => {
+          t.status = cmd.colour === "red" ? "cancelled" : "completed";
+        });
+      activity("call", `${cmd.colour}: ${cmd.note}`);
+      activity("note", cmd.note);
+      if (cmd.followup) addTask(cmd.followup, "Follow-up", cmd.note);
+      break;
+    }
     case "note":
+      e.currentNote = cmd.text;
       activity("note", cmd.text);
       break;
     case "call":
@@ -344,6 +401,11 @@ export function applyCommand(
         t.status = "completed";
       }
       e.lastContact = now;
+      e.initialCallAt ||= now;
+      if (cmd.note.trim()) {
+        e.currentNote = cmd.note;
+        activity("note", cmd.note);
+      }
       e.response =
         cmd.outcome === "No answer"
           ? "no_answer"
@@ -448,6 +510,9 @@ export function applyCommand(
         "payment",
         `${money(cmd.amount)} recorded, unverified. Reference: ${cmd.reference}`,
       );
+      e.tasks
+        .filter((t) => t.status === "pending")
+        .forEach((t) => (t.status = "cancelled"));
       break;
     case "verify": {
       const p = e.payments.find((p) => p.id === cmd.paymentId);

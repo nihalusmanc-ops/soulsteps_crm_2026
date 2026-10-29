@@ -11,14 +11,15 @@ describe("trip fit is independent of intent", () => {
   it.each([
     ["couple", "all", "P1"],
     ["couple", "none", "P2"],
-    ["solo", "all", "P4"],
+    ["solo", "all", "P3"],
+    ["family", "all", "P4"],
+    ["friends", "all", "P4"],
     ["solo", "none", "P5"],
     ["friends", "none", "P6"],
   ] as const)("%s / %s ? %s", (group, visa, rank) =>
     expect(classify(group, visa).rank).toBe(rank),
   );
-  it("leaves overlapping, mixed and unknown cases unresolved", () => {
-    expect(classify("family", "all").rank).toBeNull();
+  it("leaves missing and legacy mixed answers unresolved", () => {
     expect(classify("couple", "some").rank).toBeNull();
     expect(classify("solo", "unknown").rank).toBeNull();
   });

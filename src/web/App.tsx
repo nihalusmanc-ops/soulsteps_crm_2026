@@ -1,4 +1,6 @@
 import { selfDrivePreference } from "../shared/domain";
+import { CallingWorkspace } from "./CallingWorkspace";
+import { callColours, currentNote, type CallColour } from "../shared/calling";
 import {
   LeadNotesDrawer,
   LeadNoteCard,
@@ -206,8 +208,7 @@ function useStageLabels() {
   ) as typeof stages;
 }
 const nav = [
-  { to: "/", label: "Today", icon: LayoutDashboard },
-  { to: "/enquiries", label: "Enquiries", icon: Users },
+  { to: "/", label: "Enquiries", icon: Users },
   { to: "/trips", label: "Trips", icon: Map },
   { to: "/bookings", label: "Bookings", icon: Wallet },
   { to: "/overview", label: "Overview", icon: Compass },
@@ -345,7 +346,12 @@ export default function App() {
       n.to === "/"
         ? location.pathname === "/"
         : location.pathname.startsWith(n.to),
-    )?.label || "Workspace";
+    )?.label ||
+    (location.pathname.startsWith("/enquiries")
+      ? "Enquiries"
+      : location.pathname === "/today"
+        ? "Daily summary"
+        : "Workspace");
   useEffect(() => {
     document.title =
       (loginOptions.data?.method === "password" && (me.isError || !me.data)
@@ -506,6 +512,12 @@ export default function App() {
                 key={n.to}
                 to={n.to}
                 end={n.to === "/"}
+                className={({ isActive }) =>
+                  isActive ||
+                  (n.to === "/" && location.pathname.startsWith("/enquiries"))
+                    ? "active"
+                    : undefined
+                }
                 onClick={() => setMobile(false)}
               >
                 <n.icon size={19} />
@@ -642,15 +654,26 @@ export default function App() {
                 <Route path="/account/security" element={<AccountSecurity />} />
                 <Route
                   path="/settings"
-                  element={me.data ? <SettingsPage identity={me.data} /> : null}
+                  element={
+                    me.data ? (
+                      <SettingsPage
+                        identity={me.data}
+                        trips={query.data.trips}
+                      />
+                    ) : null
+                  }
                 />
                 <Route
                   path="/"
-                  element={<Today onCreate={() => setCreate(true)} />}
+                  element={<Enquiries onCreate={() => setCreate(true)} />}
                 />
                 <Route
                   path="/enquiries"
                   element={<Enquiries onCreate={() => setCreate(true)} />}
+                />
+                <Route
+                  path="/today"
+                  element={<Today onCreate={() => setCreate(true)} />}
                 />
                 <Route
                   path="/enquiries/:id"
@@ -715,6 +738,14 @@ export default function App() {
                           {
                             email: String(f.get("email") || "").trim(),
                             phone: String(f.get("phone") || "").trim(),
+                          },
+                          {
+                            group: String(f.get("group")) as Enquiry["group"],
+                            visa: String(f.get("visa")) as
+                              "all" | "none" | "unknown",
+                            travellers: f.get("travellers")
+                              ? Number(f.get("travellers"))
+                              : null,
                           },
                         );
                       })
@@ -858,6 +889,35 @@ export default function App() {
                       ))}
                     </select>
                   </label>
+                  <div className="form-grid">
+                    <label>
+                      Travel party
+                      <select name="group" defaultValue="unknown">
+                        <option value="unknown">Not set</option>
+                        <option value="couple">Couple</option>
+                        <option value="solo">Solo</option>
+                        <option value="family">Family</option>
+                        <option value="friends">Friends</option>
+                      </select>
+                    </label>
+                    <label>
+                      Schengen
+                      <select name="visa" defaultValue="unknown">
+                        <option value="unknown">Not set</option>
+                        <option value="all">Yes</option>
+                        <option value="none">No</option>
+                      </select>
+                    </label>
+                    <label>
+                      Number of travellers
+                      <input
+                        name="travellers"
+                        type="number"
+                        min="1"
+                        max="1000"
+                      />
+                    </label>
+                  </div>
                   <Button type="submit" disabled={writes.pending}>
                     Create enquiry
                   </Button>
@@ -1176,6 +1236,22 @@ function Today({ onCreate }: { onCreate: () => void }) {
   );
 }
 function Enquiries({ onCreate }: { onCreate: () => void }) {
+  const { data, writes } = useCRM();
+  const [params] = useSearchParams();
+  if (params.get("view") === "pipeline")
+    return <LegacyEnquiries onCreate={onCreate} />;
+  return (
+    <>
+      <CallingWorkspace data={data} writes={writes} onCreate={onCreate} />
+      <details className="calling-other-views">
+        <summary>More views</summary>
+        <Link to="/today">Daily summary</Link>
+        <Link to="/enquiries?view=pipeline">Sales pipeline</Link>
+      </details>
+    </>
+  );
+}
+function LegacyEnquiries({ onCreate }: { onCreate: () => void }) {
   const [notesFor, setNotesFor] = useState<Enquiry | null>(null);
   const notesTrigger = useRef<HTMLButtonElement | null>(null);
   const [clientStatus, setClientStatus] = useViewParam("clientStatus", "");
@@ -1768,7 +1844,12 @@ function Detail() {
     writes.retryable &&
     failed?.kind === "command" &&
     failed.id === e.id &&
-    failed.command.type === (action === "cancel" ? "taskStatus" : action);
+    failed.command.type ===
+      (action === "cancel"
+        ? "taskStatus"
+        : action === "call"
+          ? "saveCall"
+          : action);
   const returnTo =
     typeof location.state?.from === "string" &&
     (["/", "/enquiries", "/bookings"].includes(
@@ -1791,12 +1872,10 @@ function Detail() {
         break;
       case "call":
         command = {
-          type: "call",
-          outcome: s("outcome") as "Connected",
+          type: "saveCall",
+          colour: s("colour") as CallColour,
           note: s("note"),
-          taskId: s("task") || undefined,
           followup: dubai(s("due")),
-          noNextReason: s("reason"),
         };
         break;
       case "task":
@@ -1907,7 +1986,7 @@ function Detail() {
             ? "All enquiries"
             : returnTo.startsWith("/trips/")
               ? "Back to trip"
-              : "Today"}
+              : "Enquiries"}
       </Link>
       <div className="detail-heading">
         <div className="detail-person">
@@ -1926,10 +2005,10 @@ function Detail() {
         <div className="heading-actions">
           <Button
             variant="outline"
-            disabled={!manualWhatsAppUrl(e.phone)}
+            disabled={e.sample || !manualWhatsAppUrl(e.phone)}
             title="Open WhatsApp manually; a full phone number is required"
             onClick={() => {
-              const url = manualWhatsAppUrl(e.phone);
+              const url = e.sample ? null : manualWhatsAppUrl(e.phone);
               if (url) window.open(url, "_blank", "noopener,noreferrer");
             }}
           >
@@ -1946,7 +2025,7 @@ function Detail() {
             name={e.name}
             revision={e.revision}
             blocked={
-              e.booking || e.payments.length
+              !e.sample && (e.booking || e.payments.length)
                 ? "This enquiry has payment or booking records and cannot be deleted."
                 : undefined
             }
@@ -2509,54 +2588,43 @@ function Detail() {
           {action === "note" && (
             <label>
               Note
-              <textarea name="note" required autoFocus />
+              <textarea
+                name="note"
+                required
+                autoFocus
+                defaultValue={currentNote(e)}
+              />
             </label>
           )}
           {action === "call" && (
             <>
               <label>
-                Call outcome
-                <select name="outcome">
-                  {[
-                    "Connected",
-                    "No answer",
-                    "Busy",
-                    "Unreachable",
-                    "Callback requested",
-                    "Not interested",
-                  ].map((v) => (
-                    <option key={v}>{v}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Complete linked task
-                <select name="task">
-                  <option value="">No linked task</option>
-                  {pending.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.type} · {dateTime(t.due)}
+                Call colour
+                <select
+                  name="colour"
+                  defaultValue={e.callColour || ""}
+                  required
+                >
+                  <option value="" disabled>
+                    Choose a colour
+                  </option>
+                  {Object.entries(callColours).map(([k, v]) => (
+                    <option key={k} value={k}>
+                      {v}
                     </option>
                   ))}
                 </select>
               </label>
               <label>
-                Call notes
-                <textarea name="note" />
+                Note
+                <textarea name="note" required defaultValue={currentNote(e)} />
               </label>
               <label>
-                Next follow-up · Dubai
+                Next follow-up (optional)
                 <DateTimeField
                   pickerLabel="Follow-up date and time"
                   type="datetime-local"
                   name="due"
-                />
-              </label>
-              <label>
-                If no next action, explain why
-                <input
-                  name="reason"
-                  placeholder="Required if no follow-up is scheduled"
                 />
               </label>
             </>
@@ -2723,9 +2791,14 @@ function Detail() {
               </label>
               <label>
                 Visa summary
-                <select name="visa" defaultValue={e.visa}>
-                  {["all", "none", "some", "unknown"].map((v) => (
-                    <option key={v}>{v}</option>
+                <select
+                  name="visa"
+                  defaultValue={e.visa === "some" ? "unknown" : e.visa}
+                >
+                  {["unknown", "all", "none"].map((v) => (
+                    <option key={v} value={v}>
+                      {v === "all" ? "Yes" : v === "none" ? "No" : "Not set"}
+                    </option>
                   ))}
                 </select>
               </label>

@@ -32,6 +32,11 @@ export const createSchema = z
     name: z.string().trim().min(1).max(100),
     tripId: z.string().min(1),
     customerId: z.string().optional(),
+    group: z
+      .enum(["couple", "solo", "family", "friends", "unknown"])
+      .optional(),
+    visa: z.enum(["all", "none", "unknown"]).optional(),
+    travellers: z.number().int().min(1).max(1000).nullable().optional(),
     email: z.union([z.email().max(254), z.literal("")]).optional(),
     phone: z
       .union([z.string().regex(/^\+[1-9]\d{7,14}$/), z.literal("")])

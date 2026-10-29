@@ -427,6 +427,9 @@ export class Repository {
       name: string;
       tripId: string;
       customerId?: string;
+      group?: Enquiry["group"];
+      visa?: "all" | "none" | "unknown";
+      travellers?: number | null;
       email?: string;
       phone?: string;
     },
@@ -438,10 +441,10 @@ export class Repository {
     if (replay) return replay;
     const trip = await this.db
       .prepare(
-        "SELECT id FROM trips WHERE id=? AND json_extract(data,'$.deletedAt') IS NULL",
+        "SELECT id,data FROM trips WHERE id=? AND json_extract(data,'$.deletedAt') IS NULL",
       )
       .bind(input.tripId)
-      .first();
+      .first<{ id: string; data: string }>();
     if (!trip)
       throw new ApiError(400, "INVALID_TRIP", "Choose an existing trip.");
     let customer: {
@@ -508,9 +511,9 @@ export class Repository {
       shared: true,
       stage: "NEW",
       temperature: "unassessed",
-      group: "unknown",
-      visa: "unknown",
-      travellers: null,
+      group: input.group || "unknown",
+      visa: input.visa || "unknown",
+      travellers: input.travellers ?? null,
       rank: null,
       rankReason: "Needs qualification: collect group and visa details.",
       response: "none",
@@ -526,6 +529,14 @@ export class Repository {
       revision: 0,
     };
     const statements: D1PreparedStatement[] = [];
+    const tripData = JSON.parse(trip.data) as Trip;
+    if (tripData.activeRules) {
+      const fit = evaluateRules(tripData.activeRules, e.group, e.visa);
+      e.rank = fit.rank;
+      e.rankReason = fit.reason;
+      e.rankRuleVersion = tripData.activeRuleVersion;
+      e.rankComputedAt = now;
+    }
     if (!customer)
       statements.push(
         this.db
@@ -636,7 +647,7 @@ export class Repository {
       );
     const protection =
       kind === "enquiry"
-        ? "NOT EXISTS(SELECT 1 FROM payments WHERE enquiry_id=enquiries.id) AND NOT EXISTS(SELECT 1 FROM bookings WHERE enquiry_id=enquiries.id)"
+        ? "(json_extract(enquiries.data,'$.sample')=1 OR (NOT EXISTS(SELECT 1 FROM payments WHERE enquiry_id=enquiries.id) AND NOT EXISTS(SELECT 1 FROM bookings WHERE enquiry_id=enquiries.id)))"
         : "NOT EXISTS(SELECT 1 FROM enquiries WHERE trip_id=trips.id AND json_extract(data,'$.deletedAt') IS NULL)";
     const data = {
       ...JSON.parse(current.data),

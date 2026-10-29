@@ -728,44 +728,72 @@ export function RuleManager({
       ) : (
         <>
           <p className="micro">
-            Active version:{" "}
-            {query.data?.activeVersion || "None — draft defaults"}. Unknown and
-            mixed visas always need qualification. Family/friends with all visas
-            remain disabled until reviewed.
+            Choose a priority for each group and Schengen answer. Missing
+            answers need qualification.
           </p>
           <div className="rules-editor">
-            {active.map((rule, i) => (
-              <div className="rule-editor" key={rule.id}>
-                <label className="checkbox">
-                  <input
-                    aria-label={`Enable ${rule.group} ${rule.visa}`}
-                    type="checkbox"
-                    checked={rule.enabled}
+            {active
+              .filter((rule) => rule.group !== "friends")
+              .map((rule) => (
+                <div className="rule-editor" key={rule.id}>
+                  <label className="checkbox">
+                    <input
+                      aria-label={`Enable ${rule.group} ${rule.visa}`}
+                      type="checkbox"
+                      checked={rule.enabled}
+                      onChange={(e) => {
+                        const next = structuredClone(active);
+                        next
+                          .filter(
+                            (r) =>
+                              r.group === rule.group ||
+                              (rule.group === "family" &&
+                                r.group === "friends"),
+                          )
+                          .filter((r) => r.visa === rule.visa)
+                          .forEach((r) => (r.enabled = e.target.checked));
+                        setRules(next);
+                        setPreview(null);
+                      }}
+                    />
+                    {rule.group === "family"
+                      ? "Family / small group"
+                      : rule.group === "couple"
+                        ? "Couple"
+                        : "Solo"}{" "}
+                    · Schengen: {rule.visa === "all" ? "Yes" : "No"}
+                  </label>
+                  <select
+                    aria-label={`Rank ${rule.group} ${rule.visa}`}
+                    value={rule.rank}
                     onChange={(e) => {
                       const next = structuredClone(active);
-                      next[i].enabled = e.target.checked;
+                      next
+                        .filter(
+                          (r) =>
+                            r.group === rule.group ||
+                            (rule.group === "family" && r.group === "friends"),
+                        )
+                        .filter((r) => r.visa === rule.visa)
+                        .forEach((r) => {
+                          r.rank = e.target.value as Rule["rank"];
+                          r.explanation =
+                            (r.group === "friends" || r.group === "family"
+                              ? "Family / small group"
+                              : r.group) +
+                            "; Schengen: " +
+                            (r.visa === "all" ? "Yes" : "No");
+                        });
                       setRules(next);
                       setPreview(null);
                     }}
-                  />
-                  {rule.group} · {rule.visa} visas
-                </label>
-                <select
-                  aria-label={`Rank ${rule.group} ${rule.visa}`}
-                  value={rule.rank}
-                  onChange={(e) => {
-                    const next = structuredClone(active);
-                    next[i].rank = e.target.value as Rule["rank"];
-                    setRules(next);
-                    setPreview(null);
-                  }}
-                >
-                  {["P1", "P2", "P3", "P4", "P5", "P6"].map((rank) => (
-                    <option key={rank}>{rank}</option>
-                  ))}
-                </select>
-              </div>
-            ))}
+                  >
+                    {["P1", "P2", "P3", "P4", "P5", "P6"].map((rank) => (
+                      <option key={rank}>{rank}</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
           </div>
           <Button disabled={busy} onClick={review}>
             Preview affected enquiries
