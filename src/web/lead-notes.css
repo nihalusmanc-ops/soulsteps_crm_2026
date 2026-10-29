@@ -190,3 +190,21 @@
 .enquiry-click-row:focus-within {
   background: var(--muted, #f4f1ed);
 }
+.customer-search-results {
+  display: grid;
+  gap: 8px;
+  max-height: 240px;
+  overflow: auto;
+  margin-bottom: 16px;
+}
+.customer-search-results .button {
+  justify-content: flex-start;
+  text-align: left;
+  min-height: 52px;
+  height: auto;
+  white-space: normal;
+}
+.customer-search-results small {
+  display: block;
+  font-weight: 400;
+}

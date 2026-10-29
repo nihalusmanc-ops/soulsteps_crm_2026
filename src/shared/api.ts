@@ -18,6 +18,12 @@ export type StoredFile = {
   size: number;
   createdAt: string;
 };
+export type CustomerSummary = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+};
 export const mutationSchema = z
   .object({ revision: z.number().int().nonnegative(), command: commandSchema })
   .strict();
@@ -26,6 +32,10 @@ export const createSchema = z
     name: z.string().trim().min(1).max(100),
     tripId: z.string().min(1),
     customerId: z.string().optional(),
+    email: z.union([z.email().max(254), z.literal("")]).optional(),
+    phone: z
+      .union([z.string().regex(/^\+[1-9]\d{7,14}$/), z.literal("")])
+      .optional(),
   })
   .strict();
 export const tripSchema = z

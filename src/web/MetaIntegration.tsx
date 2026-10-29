@@ -148,10 +148,10 @@ export function MetaIntegration() {
           )}
           <h3>Reviewed form mappings</h3>
           <p>
-            The initial IDs and field names below are fictional examples.
-            Configure exact submitted field keys; question wording is not a
-            travel-date answer. Changes apply to future processing attempts and
-            leave existing enquiries unchanged.
+            Configure the actual form IDs and submitted field keys before
+            enabling integration; question wording is not a travel-date answer.
+            Changes apply to future processing attempts and leave existing
+            enquiries unchanged.
           </p>
           {status.data.forms.map((form) => (
             <div className="notice" key={form.id}>

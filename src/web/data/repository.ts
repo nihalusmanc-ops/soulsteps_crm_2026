@@ -11,7 +11,12 @@ export interface CrmRepository {
   read(): Promise<State>;
   command(id: string, revision: number, command: Command): Promise<void>;
   saveTrip(trip: Trip): Promise<void>;
-  create(name: string, tripId: string, customerId?: string): Promise<string>;
+  create(
+    name: string,
+    tripId: string,
+    customerId?: string,
+    contact?: { email: string; phone: string },
+  ): Promise<string>;
   reset(): Promise<void>;
 }
 function readLocal(): State {

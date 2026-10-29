@@ -4,6 +4,7 @@ import { defaultSettings } from "../../src/shared/management";
 test("notes are beside leads, filter by client status and open in a responsive keyboard-accessible drawer", async ({
   page,
 }) => {
+  let role = "manager";
   const e: Enquiry = {
     id: "PREVIEW-LEAD",
     customerId: "PREVIEW-CUSTOMER",
@@ -80,16 +81,25 @@ test("notes are beside leads, filter by client status and open in a responsive k
         ? {
             id: "PREVIEW",
             name: "Fictional manager",
-            role: "manager",
-            local: true,
+            role,
+            local: false,
           }
         : path === "/api/auth/options"
           ? { method: "access" }
           : path === "/api/state"
             ? state
-            : path === "/api/settings"
-              ? defaultSettings
-              : [];
+            : path === "/api/customers"
+              ? [
+                  {
+                    id: e.customerId,
+                    name: e.name,
+                    email: e.email,
+                    phone: e.phone,
+                  },
+                ]
+              : path === "/api/settings"
+                ? defaultSettings
+                : [];
     await route.fulfill({ json: body });
   });
   const errors: string[] = [];
@@ -160,5 +170,94 @@ test("notes are beside leads, filter by client status and open in a responsive k
     selfDrive: "yes",
     travellers: 3,
   });
+  await expect(edit).not.toBeVisible();
+  await page.goto("/enquiries");
+  await page.getByRole("button", { name: "New enquiry", exact: true }).click();
+  const create = page.getByRole("dialog", { name: "New enquiry", exact: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(create).not.toContainText(/demo|fictional/i);
+  await create
+    .getByLabel("Search existing customers")
+    .fill("preview@example.invalid");
+  await create.getByRole("button", { name: /Fictional Updated/ }).click();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await expect(
+    create.getByLabel("Customer name", { exact: true }),
+  ).toBeDisabled();
+  await create.getByLabel("Trip", { exact: true }).selectOption("PREVIEW-TRIP");
+  let created: any;
+  await page.route("**/api/enquiries", async (route) => {
+    created = route.request().postDataJSON();
+    await route.fulfill({ json: { id: e.id } });
+  });
+  await create
+    .getByRole("button", { name: "Create enquiry", exact: true })
+    .click();
+  await expect.poll(() => created?.customerId).toBe("PREVIEW-CUSTOMER");
+  expect(created.name).toBe("Fictional Updated");
+  await expect(create).not.toBeVisible();
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/trips");
+  await page.getByRole("button", { name: "Delete trip", exact: true }).click();
+  const blocked = page.getByRole("dialog", {
+    name: "Delete trip?",
+    exact: true,
+  });
+  await expect(blocked).toContainText("This trip has enquiries");
+  await blocked.getByRole("button", { name: "Close", exact: true }).click();
+  await page.goto("/enquiries/PREVIEW-LEAD");
+  await page
+    .getByRole("button", { name: "Delete enquiry", exact: true })
+    .click();
+  const deletion = page.getByRole("dialog", {
+    name: "Delete enquiry?",
+    exact: true,
+  });
+  await deletion.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page).toHaveURL(/\/enquiries\/PREVIEW-LEAD/);
+  await page
+    .getByRole("button", { name: "Delete enquiry", exact: true })
+    .click();
+  let deleted = "";
+  await page.route("**/api/enquiries/PREVIEW-LEAD", async (route) => {
+    deleted = route.request().method();
+    state.enquiries = [];
+    await route.fulfill({ json: { ok: true } });
+  });
+  await deletion.getByRole("checkbox").check();
+  await deletion
+    .getByRole("button", { name: "Delete enquiry", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/enquiries$/);
+  expect(deleted).toBe("DELETE");
+  await page.goto("/trips");
+  await page.getByRole("button", { name: "Delete trip", exact: true }).click();
+  const tripDeletion = page.getByRole("dialog", {
+    name: "Delete trip?",
+    exact: true,
+  });
+  await tripDeletion.getByRole("checkbox").check();
+  await page.route("**/api/trips/PREVIEW-TRIP", async (route) => {
+    expect(route.request().method()).toBe("DELETE");
+    state.trips = [];
+    await route.fulfill({ json: { ok: true } });
+  });
+  await tripDeletion
+    .getByRole("button", { name: "Delete trip", exact: true })
+    .click();
+  await expect(page.getByText("No trips yet", { exact: true })).toBeVisible();
+  role = "staff";
+  state.enquiries = [e];
+  await page.goto("/enquiries/PREVIEW-LEAD");
+  await expect(
+    page.getByRole("heading", { name: e.name, exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Delete enquiry", exact: true }),
+  ).toHaveCount(0);
   expect(errors).toEqual([]);
 });

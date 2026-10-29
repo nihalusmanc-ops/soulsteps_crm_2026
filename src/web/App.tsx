@@ -44,6 +44,8 @@ import {
   useParams,
 } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { CustomerSummary } from "../shared/api";
+import { request } from "./data/api";
 import {
   ArrowDown,
   ArrowLeft,
@@ -70,7 +72,12 @@ import {
 } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Modal } from "./components/ui/modal";
-import { apiRepository as repository, session, reports } from "./data/api";
+import {
+  apiRepository as repository,
+  session,
+  reports,
+  deleteRecord,
+} from "./data/api";
 import { FilesPanel } from "./FilesPanel";
 import {
   stages,
@@ -96,6 +103,94 @@ const Context = createContext<{
   error: string;
 }>({} as never);
 const useCRM = () => useContext(Context);
+function DeleteRecord({
+  kind,
+  id,
+  name,
+  revision,
+  blocked,
+}: {
+  kind: "trip" | "enquiry";
+  id: string;
+  name: string;
+  revision: number;
+  blocked?: string;
+}) {
+  const { run, role, error } = useCRM();
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false),
+    [pending, setPending] = useState(false);
+  if (role !== "manager") return null;
+  return (
+    <>
+      <Button variant="ghost" onClick={() => setOpen(true)}>
+        Delete {kind}
+      </Button>
+      <Modal
+        open={open}
+        onClose={() => {
+          if (!pending) setOpen(false);
+        }}
+        title={`Delete ${kind}?`}
+        description={name}
+      >
+        {blocked ? (
+          <>
+            <p>{blocked}</p>
+            <Button onClick={() => setOpen(false)}>Close</Button>
+          </>
+        ) : (
+          <form
+            onSubmit={async (event) => {
+              event.preventDefault();
+              if (pending) return;
+              setPending(true);
+              const success = await run(
+                () => deleteRecord(kind, id, revision),
+                `${kind === "trip" ? "Trip" : "Enquiry"} deleted`,
+              );
+              setPending(false);
+              if (success) {
+                setOpen(false);
+                navigate(kind === "trip" ? "/trips" : "/enquiries");
+              }
+            }}
+          >
+            <p>
+              This removes the {kind} from the workspace. History is retained
+              for audit.
+              {kind === "enquiry"
+                ? " Pending follow-ups will be cancelled. The customer record and other enquiries are kept."
+                : " Enquiries linked to this trip must be removed first."}
+            </p>
+            {error && (
+              <p role="alert" className="error-banner">
+                {error}
+              </p>
+            )}
+            <label className="checkbox">
+              <input type="checkbox" required disabled={pending} />I confirm I
+              want to delete this {kind}.
+            </label>
+            <div className="modal-actions">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={pending}
+                onClick={() => setOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={pending}>
+                {pending ? "Deleting…" : `Delete ${kind}`}
+              </Button>
+            </div>
+          </form>
+        )}
+      </Modal>
+    </>
+  );
+}
 function useStageLabels() {
   const cfg = useWorkspace();
   return Object.fromEntries(
@@ -209,6 +304,24 @@ export default function App() {
   const role = me.data?.role || "staff";
   const [create, setCreate] = useState(false);
   const [existingCustomer, setExistingCustomer] = useState("");
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  useEffect(() => {
+    const timer = window.setTimeout(
+      () => setSearchTerm(customerSearch.trim()),
+      250,
+    );
+    return () => window.clearTimeout(timer);
+  }, [customerSearch]);
+  const customers = useQuery({
+    queryKey: ["customers", me.data?.id, searchTerm],
+    queryFn: ({ signal }) =>
+      request<CustomerSummary[]>(
+        `/customers?q=${encodeURIComponent(searchTerm)}`,
+        { signal },
+      ),
+    enabled: !!me.data && create && !!searchTerm,
+  });
   const navigate = useNavigate();
   const location = useLocation();
   const navigationRef = useRef<HTMLElement>(null);
@@ -532,9 +645,10 @@ export default function App() {
                 onClose={() => {
                   setCreate(false);
                   setExistingCustomer("");
+                  setCustomerSearch("");
                 }}
-                title="New demo enquiry"
-                description="Use fictional names only. No real contact details or customer messages."
+                title="New enquiry"
+                description="Choose an existing customer or add someone new."
               >
                 <form
                   onSubmit={async (e) => {
@@ -546,53 +660,152 @@ export default function App() {
                         id = await repository.create(
                           String(
                             f.get("name") ||
-                              query.data.enquiries.find(
-                                (e) => e.customerId === existingCustomer,
+                              customers.data?.find(
+                                (e) => e.id === existingCustomer,
                               )?.name ||
                               "",
                           ),
                           String(f.get("trip")),
                           existingCustomer || undefined,
+                          {
+                            email: String(f.get("email") || "").trim(),
+                            phone: String(f.get("phone") || "").trim(),
+                          },
                         );
                       })
                     ) {
                       setCreate(false);
                       setExistingCustomer("");
+                      setCustomerSearch("");
                       navigate(`/enquiries/${id}`);
                     }
                   }}
                 >
                   <label>
-                    Customer record
-                    <select
-                      value={existingCustomer}
-                      onChange={(e) => setExistingCustomer(e.target.value)}
-                    >
-                      <option value="">New customer</option>
-                      {Array.from(
-                        new globalThis.Map(
-                          query.data.enquiries.map((e) => [e.customerId, e]),
-                        ).values(),
-                      ).map((e) => (
-                        <option key={e.customerId} value={e.customerId}>
-                          {e.name} · existing customer
-                        </option>
-                      ))}
-                    </select>
+                    Search existing customers
+                    <input
+                      type="search"
+                      value={customerSearch}
+                      maxLength={100}
+                      placeholder="Name, phone or email"
+                      onChange={(event) => {
+                        setCustomerSearch(event.target.value);
+                        setExistingCustomer("");
+                      }}
+                      aria-controls="customer-search-results"
+                    />
                   </label>
+                  {existingCustomer ? (
+                    <div className="notice">
+                      Selected:{" "}
+                      {
+                        customers.data?.find((e) => e.id === existingCustomer)
+                          ?.name
+                      }{" "}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => {
+                          setExistingCustomer("");
+                          setCustomerSearch("");
+                        }}
+                      >
+                        Use a new customer
+                      </Button>
+                    </div>
+                  ) : (
+                    customerSearch.trim() && (
+                      <div
+                        id="customer-search-results"
+                        className="customer-search-results"
+                        aria-label="Matching customers"
+                      >
+                        {(() => {
+                          if (
+                            searchTerm !== customerSearch.trim() ||
+                            customers.isFetching
+                          )
+                            return <p role="status">Searching…</p>;
+                          if (customers.isError)
+                            return (
+                              <p role="alert">
+                                Customer search failed.{" "}
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  onClick={() => customers.refetch()}
+                                >
+                                  Try again
+                                </Button>
+                              </p>
+                            );
+                          const matches = customers.data || [];
+                          return matches.length ? (
+                            <>
+                              <p className="micro">
+                                {matches.length} matching{" "}
+                                {matches.length === 1
+                                  ? "customer"
+                                  : "customers"}
+                              </p>
+                              {matches.slice(0, 20).map((e) => (
+                                <Button
+                                  key={e.id}
+                                  type="button"
+                                  variant="outline"
+                                  onClick={() => setExistingCustomer(e.id)}
+                                >
+                                  <span>
+                                    {e.name}
+                                    <small>
+                                      {e.phone ||
+                                        e.email ||
+                                        "No contact details"}
+                                    </small>
+                                  </span>
+                                </Button>
+                              ))}
+                            </>
+                          ) : (
+                            <p role="status" className="micro">
+                              No matching customer. Add their details below.
+                            </p>
+                          );
+                        })()}
+                      </div>
+                    )
+                  )}
                   <label>
-                    Fictional customer name
+                    Customer name
                     <input
                       name="name"
                       required={!existingCustomer}
                       disabled={!!existingCustomer}
                       maxLength={100}
-                      placeholder="Demo Traveller M"
+                      placeholder="Full name"
                     />
                   </label>
+                  {!existingCustomer && (
+                    <div className="form-grid">
+                      <label>
+                        Email
+                        <input name="email" type="email" maxLength={254} />
+                      </label>
+                      <label>
+                        Phone
+                        <input
+                          name="phone"
+                          type="tel"
+                          pattern="[+][1-9][0-9]{7,14}"
+                          placeholder="Include country code"
+                        />
+                      </label>
+                    </div>
+                  )}
                   <label>
                     Trip
-                    <select name="trip">
+                    <select name="trip" required aria-label="Trip">
+                      <option value="">Choose a trip</option>
                       {query.data.trips.map((t) => (
                         <option key={t.id} value={t.id}>
                           {t.name}
@@ -1639,7 +1852,7 @@ function Detail() {
     payment: "Record payment",
     verify: "Verify deposit funds",
     reverse: "Reverse verified payment",
-    quote: "Record accepted demo quotation",
+    quote: "Record accepted quotation",
     confirm: "Confirm booking",
     override: "Override trip-fit rank",
     cancel: "Cancel task",
@@ -1685,6 +1898,17 @@ function Detail() {
             <Phone size={16} />
             Log call
           </Button>
+          <DeleteRecord
+            kind="enquiry"
+            id={e.id}
+            name={e.name}
+            revision={e.revision}
+            blocked={
+              e.booking || e.payments.length
+                ? "This enquiry has payment or booking records and cannot be deleted."
+                : undefined
+            }
+          />
         </div>
       </div>
       <div className="detail-summary">
@@ -1826,7 +2050,14 @@ function Detail() {
                     <div>
                       <span>Availability</span>
                       <strong>
-                        {e.availability} ·{" "}
+                        {
+                          {
+                            pending: "Not checked",
+                            confirmed: "Available",
+                            unavailable: "Unavailable",
+                          }[e.availability]
+                        }{" "}
+                        ·{" "}
                         {e.availability === "pending"
                           ? "not yet checked"
                           : "recorded by staff"}
@@ -1847,7 +2078,7 @@ function Detail() {
                       </strong>
                     </div>
                     <div>
-                      <span>Booking timeframe</span>
+                      <span>Expected booking decision</span>
                       <strong>{e.bookingTimeframe || "Not set"}</strong>
                     </div>
                   </div>
@@ -2091,12 +2322,12 @@ function Detail() {
                   ) : (
                     <Empty
                       title="No accepted quotation yet"
-                      text="Record the agreed fictional amount and deposit before recording payments."
+                      text="Record the agreed amount and deposit before recording payments."
                     />
                   )}
                   {!e.quote && (
                     <Button onClick={() => setAction("quote")}>
-                      Record demo quotation
+                      Record quotation
                     </Button>
                   )}
                   <p className="micro">
@@ -2194,10 +2425,10 @@ function Detail() {
         title={titles[action] || ""}
         description={
           action === "verify"
-            ? "Only confirm verification after checking funds against the fictional bank record. This does not confirm the booking."
+            ? "Verify funds against your bank record. Booking confirmation is a separate step."
             : action === "confirm"
-              ? "This deliberate action creates one demo booking and retains the outstanding balance."
-              : "Changes are recorded in the local demo history. Times are Asia/Dubai."
+              ? "Confirm the booking after verifying the required deposit. The balance remains outstanding."
+              : "Changes are saved in activity history. Times are Asia/Dubai."
         }
       >
         {error && (
@@ -2401,12 +2632,12 @@ function Detail() {
                   />
                 </label>
                 <label>
-                  Booking timeframe
+                  Expected booking decision
                   <input
                     name="bookingTimeframe"
                     defaultValue={e.bookingTimeframe || ""}
                     maxLength={300}
-                    placeholder="For example, next month"
+                    placeholder="When they expect to decide, e.g. next month"
                   />
                 </label>
               </div>
@@ -2438,15 +2669,16 @@ function Detail() {
                 </select>
               </label>
               <label>
-                Manual availability
+                Availability check
                 <select name="availability" defaultValue={e.availability}>
-                  {["pending", "confirmed", "unavailable"].map((v) => (
-                    <option key={v}>{v}</option>
-                  ))}
+                  <option value="pending">Not checked</option>
+                  <option value="confirmed">Available</option>
+                  <option value="unavailable">Unavailable</option>
                 </select>
               </label>
               <p className="micro">
-                An existing manual rank override is preserved.
+                Staff check dates and capacity with the supplier. This does not
+                reserve a place or confirm a booking.
               </p>
             </>
           )}
@@ -2473,7 +2705,7 @@ function Detail() {
                 />
               </label>
               <label>
-                Fictional reference
+                Payment reference
                 <input name="reference" required />
               </label>
               <div className="notice">
@@ -2504,7 +2736,7 @@ function Detail() {
                 />
               </label>
               <label>
-                Accepted fictional terms
+                Accepted terms
                 <textarea
                   name="terms"
                   required
@@ -2512,15 +2744,15 @@ function Detail() {
                 />
               </label>
               <label className="checkbox">
-                <input type="checkbox" required />I am recording accepted
-                fictional terms, not a live Norway price.
+                <input type="checkbox" required />I am recording accepted terms
+                agreed with the customer.
               </label>
             </>
           )}
           {action === "verify" && (
             <label className="checkbox">
-              <input type="checkbox" required />I checked this fictional payment
-              against the bank record.
+              <input type="checkbox" required />I checked this payment against
+              the bank record.
             </label>
           )}
           {action === "confirm" && (
@@ -2531,7 +2763,7 @@ function Detail() {
               </div>
               <label className="checkbox">
                 <input type="checkbox" required />
-                Explicitly confirm this demo booking.
+                Confirm this booking.
               </label>
             </>
           )}
@@ -2662,7 +2894,7 @@ function Trips() {
                   <Wallet size={17} />
                   <span>
                     {t.price
-                      ? `${money(t.price)} / person · demo draft`
+                      ? `${money(t.price)} / person`
                       : "Approved pricing not supplied"}
                   </span>
                 </div>
@@ -2686,6 +2918,17 @@ function Trips() {
                 open enquiries <ArrowRight size={15} />
               </Link>
               <div className="trip-actions">
+                <DeleteRecord
+                  kind="trip"
+                  id={t.id}
+                  name={t.name}
+                  revision={t.version}
+                  blocked={
+                    data.enquiries.some((e) => e.tripId === t.id)
+                      ? "This trip has enquiries and cannot be deleted while they are linked to it."
+                      : undefined
+                  }
+                />
                 <Button
                   variant="outline"
                   onClick={() => setEditing(t)}
@@ -2723,7 +2966,7 @@ function Trips() {
         open={newTrip}
         onClose={() => setNewTrip(false)}
         title="Create draft trip"
-        description="Add a fixed or bespoke journey without inventing dates, prices or itinerary content."
+        description="Add the trip details you have. You can complete missing details later."
       >
         <form
           onSubmit={async (ev) => {
@@ -2768,7 +3011,7 @@ function Trips() {
         open={!!editing}
         onClose={() => setEditing(null)}
         title="Edit draft trip"
-        description="Manager demo editor. Saved as a draft; no content is published or sent."
+        description="Changes are saved as a draft. Existing quotations keep their agreed terms."
       >
         {editing && (
           <form
@@ -3098,7 +3341,7 @@ function Overview() {
           value={period}
           onChange={(e) => setPeriod(e.target.value)}
         >
-          <option value="all">All demo dates</option>
+          <option value="all">All dates</option>
           <option value="7">Last 7 days</option>
           <option value="30">Last 30 days</option>
         </select>
@@ -3207,18 +3450,19 @@ function Overview() {
             <h2>Enquiry sources</h2>
             <span className="muted">Created cohort</span>
           </div>
-          {["Facebook", "Instagram", "Manual"].map((source) => (
-            <div className="source-row" key={source}>
-              <span>{source}</span>
-              <strong>
-                {cohort.filter((e) => e.source === source).length}
-              </strong>
-            </div>
-          ))}
-          <p className="micro">
-            Source labels are demo fixtures. Ad spend and campaign ROI are not
-            supplied.
-          </p>
+          {Array.from(new Set(cohort.map((e) => e.source)))
+            .sort()
+            .map((source) => (
+              <div className="source-row" key={source}>
+                <span>{enquiryText(source)}</span>
+                <strong>
+                  {cohort.filter((e) => e.source === source).length}
+                </strong>
+              </div>
+            ))}
+          {!cohort.length && (
+            <p className="micro">No enquiries in this period.</p>
+          )}
         </section>
         <section className="panel">
           <div className="section-head">

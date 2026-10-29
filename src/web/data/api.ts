@@ -72,11 +72,17 @@ export const apiRepository: CrmRepository = {
   saveTrip: async (trip: Trip) => {
     await mutate(`/trips/${trip.id}`, trip, "PUT");
   },
-  create: async (name: string, tripId: string, customerId?: string) => {
+  create: async (
+    name: string,
+    tripId: string,
+    customerId?: string,
+    contact?: { email: string; phone: string },
+  ) => {
     const response = await mutate<{ id: string }>("/enquiries", {
       name,
       tripId,
       ...(customerId ? { customerId } : {}),
+      ...(!customerId && contact ? contact : {}),
     });
     return response.id;
   },
@@ -84,6 +90,16 @@ export const apiRepository: CrmRepository = {
     throw new Error("Persistent data cannot be reset from the browser.");
   },
 };
+export const deleteRecord = (
+  kind: "trip" | "enquiry",
+  id: string,
+  revision: number,
+) =>
+  mutate(
+    `/${kind === "trip" ? "trips" : "enquiries"}/${encodeURIComponent(id)}`,
+    { revision, confirmation: "DELETE" },
+    "DELETE",
+  );
 export const session = {
   options: () => request<{ method: "access" | "password" }>("/auth/options"),
   login: (email: string, password: string) =>

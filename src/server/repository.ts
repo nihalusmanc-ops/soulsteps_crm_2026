@@ -40,7 +40,7 @@ export class Repository {
         };
   async state(id?: string): Promise<State> {
     const scope = this.scope();
-    const condition = `${scope.sql}${id ? " AND e.id=?" : ""}`;
+    const condition = `${scope.sql} AND json_extract(e.data,'$.deletedAt') IS NULL${id ? " AND e.id=?" : ""}`;
     const values = [...scope.values, ...(id ? [id] : [])];
     const select = `SELECT e.*, c.name,c.email,c.phone_e164,u.display_name AS owner_name FROM enquiries e JOIN customers c ON c.id=e.customer_id JOIN users u ON u.id=e.owner_id WHERE ${condition} ORDER BY e.created_at DESC`;
     const children = [
@@ -90,17 +90,19 @@ export class Repository {
     return {
       version: 1,
       enquiries,
-      trips: trips.map((t) => {
-        const { writeToken, ...data } = t.data as Trip & {
-          writeToken?: string;
-        };
-        return {
-          ...data,
-          id: t.id,
-          version: t.version,
-          name: t.name,
-        };
-      }),
+      trips: trips
+        .filter((t) => !(t.data as Trip & { deletedAt?: string }).deletedAt)
+        .map((t) => {
+          const { writeToken, ...data } = t.data as Trip & {
+            writeToken?: string;
+          };
+          return {
+            ...data,
+            id: t.id,
+            version: t.version,
+            name: t.name,
+          };
+        }),
     };
   }
   async enquiry(id: string) {
@@ -112,6 +114,16 @@ export class Repository {
         "Enquiry not found or not assigned to you.",
       );
     return e;
+  }
+  async customers(search: string) {
+    const scope = this.scope();
+    const rows = await this.db
+      .prepare(
+        `SELECT c.id,c.name,COALESCE(c.email,'') AS email,c.phone_e164 AS phone FROM customers c WHERE EXISTS(SELECT 1 FROM enquiries e WHERE e.customer_id=c.id AND ${scope.sql}) AND instr(lower(c.name||' '||COALESCE(c.email,'')||' '||COALESCE(c.phone_e164,'')),lower(?))>0 ORDER BY c.name,c.id LIMIT 20`,
+      )
+      .bind(...scope.values, search.trim())
+      .all();
+    return rows.results;
   }
   async receipt(key: string, resource: string, fingerprint: string) {
     const row = await this.db
@@ -411,7 +423,13 @@ export class Repository {
     return response;
   }
   async create(
-    input: { name: string; tripId: string; customerId?: string },
+    input: {
+      name: string;
+      tripId: string;
+      customerId?: string;
+      email?: string;
+      phone?: string;
+    },
     key: string,
     fingerprint: string,
     requestId: string,
@@ -419,7 +437,9 @@ export class Repository {
     const replay = await this.receipt(key, "create", fingerprint);
     if (replay) return replay;
     const trip = await this.db
-      .prepare("SELECT id FROM trips WHERE id=?")
+      .prepare(
+        "SELECT id FROM trips WHERE id=? AND json_extract(data,'$.deletedAt') IS NULL",
+      )
       .bind(input.tripId)
       .first();
     if (!trip)
@@ -444,6 +464,19 @@ export class Repository {
           "Customer not found in your assigned records.",
         );
     }
+    if (
+      !customer &&
+      input.phone &&
+      (await this.db
+        .prepare("SELECT id FROM customers WHERE phone_e164=? LIMIT 1")
+        .bind(input.phone)
+        .first())
+    )
+      throw new ApiError(
+        409,
+        "CONTACT_CONFLICT",
+        "This phone is already on a customer. Search for the existing customer instead.",
+      );
     const owner =
       this.actor.role === "staff"
         ? this.actor.id
@@ -468,8 +501,8 @@ export class Repository {
       id,
       customerId,
       name,
-      email: customer?.email || "",
-      phone: customer?.phone_e164 || null,
+      email: customer ? customer.email || "" : input.email || "",
+      phone: customer ? customer.phone_e164 : input.phone || null,
       tripId: input.tripId,
       ownerId: owner,
       shared: true,
@@ -497,9 +530,16 @@ export class Repository {
       statements.push(
         this.db
           .prepare(
-            "INSERT INTO customers(id,name,email,phone_e164,created_at) VALUES(?,?,NULL,NULL,?)",
+            "INSERT INTO customers(id,name,email,phone_e164,contact_validity,created_at) VALUES(?,?,?,?,?,?)",
           )
-          .bind(customerId, name, now),
+          .bind(
+            customerId,
+            name,
+            e.email || null,
+            e.phone,
+            e.phone ? "submitted" : "unknown",
+            now,
+          ),
       );
     statements.push(
       this.db
@@ -561,6 +601,140 @@ export class Repository {
     }
     return response;
   }
+  async remove(
+    kind: "enquiry" | "trip",
+    id: string,
+    revision: number,
+    key: string,
+    requestId: string,
+  ) {
+    if (this.actor.role !== "manager")
+      throw new ApiError(
+        403,
+        "MANAGER_REQUIRED",
+        "Only a manager can delete records.",
+      );
+    const resource = `delete:${kind}:${id}`;
+    const fingerprint = String(revision);
+    const replay = await this.receipt(key, resource, fingerprint);
+    if (replay) return replay;
+    const now = new Date().toISOString(),
+      token = crypto.randomUUID();
+    const table = kind === "enquiry" ? "enquiries" : "trips";
+    const current = await this.db
+      .prepare(
+        `SELECT data,${kind === "enquiry" ? "revision" : "version"} AS revision FROM ${table} WHERE id=? AND json_extract(data,'$.deletedAt') IS NULL`,
+      )
+      .bind(id)
+      .first<{ data: string; revision: number }>();
+    if (!current) throw new ApiError(404, "NOT_FOUND", "Record not found.");
+    if (current.revision !== revision)
+      throw new ApiError(
+        409,
+        "REVISION_CONFLICT",
+        "This record changed. Refresh before deleting.",
+      );
+    const protection =
+      kind === "enquiry"
+        ? "NOT EXISTS(SELECT 1 FROM payments WHERE enquiry_id=enquiries.id) AND NOT EXISTS(SELECT 1 FROM bookings WHERE enquiry_id=enquiries.id)"
+        : "NOT EXISTS(SELECT 1 FROM enquiries WHERE trip_id=trips.id AND json_extract(data,'$.deletedAt') IS NULL)";
+    const data = {
+      ...JSON.parse(current.data),
+      deletedAt: now,
+      deletedBy: this.actor.id,
+    };
+    if (kind === "enquiry") {
+      data.previousStage = data.stage;
+      data.stage = "ON_HOLD";
+      data.revision = revision + 1;
+    } else {
+      data.status = "inactive";
+      data.version = revision + 1;
+      data.writeToken = token;
+    }
+    const guard =
+      kind === "enquiry"
+        ? "EXISTS(SELECT 1 FROM enquiries WHERE id=? AND write_token=?)"
+        : "EXISTS(SELECT 1 FROM trips WHERE id=? AND json_extract(data,'$.writeToken')=?)";
+    const writes = [
+      this.db
+        .prepare(
+          kind === "enquiry"
+            ? `UPDATE enquiries SET data=?,revision=revision+1,stage='ON_HOLD',write_token=?,updated_at=? WHERE id=? AND revision=? AND json_extract(data,'$.deletedAt') IS NULL AND ${protection}`
+            : `UPDATE trips SET data=?,version=version+1 WHERE id=? AND version=? AND json_extract(data,'$.deletedAt') IS NULL AND ${protection}`,
+        )
+        .bind(
+          ...(kind === "enquiry"
+            ? [json(data), token, now, id, revision]
+            : [json(data), id, revision]),
+        ),
+    ];
+    if (kind === "enquiry") {
+      writes.push(
+        this.db
+          .prepare(
+            `UPDATE tasks SET status='cancelled',data=json_set(data,'$.status','cancelled') WHERE enquiry_id=? AND status='pending' AND ${guard}`,
+          )
+          .bind(id, id, token),
+      );
+      writes.push(
+        this.db
+          .prepare(
+            `UPDATE scheduled_actions SET status='cancelled',token=NULL,lease_until=NULL,updated_at=? WHERE enquiry_id=? AND status IN ('pending','queued','processing','held','failed') AND ${guard}`,
+          )
+          .bind(now, id, id, token),
+      );
+    }
+    writes.push(
+      this.db
+        .prepare(
+          `INSERT INTO audit_events(id,actor_id,object_id,action,request_id,created_at,data) SELECT ?,?,?,?,?,?,? WHERE ${guard}`,
+        )
+        .bind(
+          crypto.randomUUID(),
+          this.actor.id,
+          id,
+          `${kind}.delete`,
+          requestId,
+          now,
+          json({ revision, retained: true }),
+          id,
+          token,
+        ),
+    );
+    writes.push(
+      this.db
+        .prepare(
+          `INSERT INTO idempotency_keys(key,actor_id,resource,fingerprint,response,created_at) SELECT ?,?,?,?,?,? WHERE ${guard}`,
+        )
+        .bind(
+          key,
+          this.actor.id,
+          resource,
+          fingerprint,
+          '{"ok":true}',
+          now,
+          id,
+          token,
+        ),
+    );
+    try {
+      const result = await this.db.batch(writes);
+      if (result[0].meta.changes !== 1)
+        throw new ApiError(
+          409,
+          "DELETE_BLOCKED",
+          kind === "enquiry"
+            ? "Enquiries with payments or bookings cannot be deleted. Otherwise refresh and try again."
+            : "This trip has enquiries and cannot be deleted while they are linked. Refresh if the trip changed.",
+        );
+    } catch (error) {
+      const replay = await this.receipt(key, resource, fingerprint);
+      if (replay) return replay;
+      throw error;
+    }
+    return { ok: true };
+  }
   async saveTrip(
     trip: Trip,
     key: string,
@@ -573,7 +747,8 @@ export class Repository {
       .prepare("SELECT version,data FROM trips WHERE id=?")
       .bind(trip.id)
       .first<{ version: number; data: string }>();
-    if (!current) throw new ApiError(404, "NOT_FOUND", "Trip not found.");
+    if (!current || JSON.parse(current.data).deletedAt)
+      throw new ApiError(404, "NOT_FOUND", "Trip not found.");
     if (current.version !== trip.version)
       throw new ApiError(
         409,

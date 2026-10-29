@@ -20,13 +20,10 @@ export function ImportPreview() {
       <div className="eyebrow">HISTORICAL IMPORT · MANAGER REVIEW</div>
       <h2>Check the source before it becomes CRM data.</h2>
       <p>
-        Preview a synthetic v2/v3 JSON fixture, then save a private batch for
-        review. Only explicitly reviewed and selected rows can become enquiries.
-        Original Excel mappings need owner review.
+        Upload prepared import JSON, check the field mappings, then review the
+        rows before adding enquiries. Excel files must be converted to the
+        supported import format first.
       </p>
-      <a href="/samples/import-preview.json" download>
-        Download synthetic fixture
-      </a>
       <label style={{ display: "block", marginTop: 16 }}>
         Choose preview JSON
         <input

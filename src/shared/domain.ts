@@ -478,7 +478,7 @@ export function applyCommand(
     }
     case "quote":
       if (e.quote)
-        throw new Error("Issued quotation is immutable in this checkpoint.");
+        throw new Error("Accepted quotations cannot be overwritten.");
       if (cmd.deposit > cmd.total)
         throw new Error("Deposit exceeds booking value.");
       e.quote = {

@@ -182,23 +182,36 @@ app.put("/api/trips/:id", async (c) => {
     ),
   );
 });
+for (const kind of ["enquiry", "trip"] as const) {
+  app.delete(
+    `/api/${kind === "trip" ? "trips" : "enquiries"}/:id`,
+    async (c) => {
+      requireManager(c);
+      const input = z
+        .object({
+          revision: z.number().int().nonnegative(),
+          confirmation: z.literal("DELETE"),
+        })
+        .strict()
+        .parse(await c.req.json());
+      return c.json(
+        await repo(c).remove(
+          kind,
+          c.req.param("id")!,
+          input.revision,
+          requestKey(c.req.header("Idempotency-Key")),
+          c.get("requestId"),
+        ),
+      );
+    },
+  );
+}
 app.get("/api/customers", async (c) => {
-  const s = await repo(c).state();
-  return c.json([
-    ...new Map(
-      s.enquiries.map((e) => [
-        e.customerId,
-        {
-          id: e.customerId,
-          name: e.name,
-          email: e.email,
-          enquiryIds: s.enquiries
-            .filter((other) => other.customerId === e.customerId)
-            .map((other) => other.id),
-        },
-      ]),
-    ).values(),
-  ]);
+  const search = z
+    .string()
+    .max(100)
+    .parse(c.req.query("q") || "");
+  return c.json(await repo(c).customers(search));
 });
 app.get("/api/bookings", async (c) =>
   c.json((await repo(c).state()).enquiries.filter((e) => e.booking)),
