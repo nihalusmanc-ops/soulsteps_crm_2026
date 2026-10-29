@@ -8,7 +8,7 @@ import { seed } from "../../shared/seed";
 export { seed } from "../../shared/seed";
 const key = "soulsteps-demo-v1";
 export interface CrmRepository {
-  read(): Promise<State>;
+  read(signal?: AbortSignal): Promise<State>;
   command(id: string, revision: number, command: Command): Promise<void>;
   saveTrip(trip: Trip): Promise<void>;
   create(

@@ -65,7 +65,7 @@ export async function mutate<T>(
   }
 }
 export const apiRepository: CrmRepository = {
-  read: () => request<State>("/state"),
+  read: (signal?: AbortSignal) => request<State>("/state", { signal }),
   command: async (id: string, revision: number, command: Command) => {
     await mutate(`/enquiries/${id}/commands`, { revision, command });
   },

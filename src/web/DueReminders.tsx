@@ -1,18 +1,42 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRef } from "react";
 import { Link } from "react-router-dom";
-import { reminders, useWorkspace } from "./data/management";
+import { reminders, useWorkspace, type Reminder } from "./data/management";
 import { dateTime } from "../shared/domain";
 export function DueReminders() {
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState("");
+  const lock = useRef(false);
   const cfg = useWorkspace();
   const query = useQuery({
     queryKey: ["reminders"],
-    queryFn: reminders.list,
-    refetchInterval: 15000,
+    queryFn: ({ signal }) => reminders.list(signal),
+    refetchInterval: () => (lock.current ? false : 15000),
+    refetchOnWindowFocus: () => !lock.current,
   });
   const client = useQueryClient();
+  const seen = useMutation({
+    mutationKey: ["reminder-seen"],
+    mutationFn: reminders.read,
+    retry: false,
+    onMutate: async (id: string) => {
+      await client.cancelQueries({ queryKey: ["reminders"] });
+      const previous = client
+        .getQueryData<Reminder[]>(["reminders"])
+        ?.find((n) => n.id === id);
+      client.setQueryData<Reminder[]>(["reminders"], (current) =>
+        current?.map((n) =>
+          n.id === id ? { ...n, read_at: new Date().toISOString() } : n,
+        ),
+      );
+      return previous;
+    },
+    onError: (_error, id, previous) => {
+      if (previous)
+        client.setQueryData<Reminder[]>(["reminders"], (current) =>
+          current?.map((n) => (n.id === id ? previous : n)),
+        );
+    },
+    onSettled: () => client.invalidateQueries({ queryKey: ["reminders"] }),
+  });
   if (query.isError)
     return (
       <p role="alert" className="notice">
@@ -38,9 +62,9 @@ export function DueReminders() {
         <h2>Due reminders</h2>
         <span className="count">{unread.length}</span>
       </div>
-      {error && (
+      {seen.error && (
         <p role="alert" className="notice">
-          {error}
+          {seen.error.message}
         </p>
       )}
       {unread.slice(0, 5).map((n) => (
@@ -53,21 +77,16 @@ export function DueReminders() {
           </Link>
           <button
             className="button ghost small"
-            disabled={busy === n.id}
+            disabled={seen.isPending}
             onClick={async () => {
-              setBusy(n.id);
-              setError("");
+              if (lock.current) return;
+              lock.current = true;
               try {
-                await reminders.read(n.id);
-                await client.invalidateQueries({ queryKey: ["reminders"] });
-              } catch (error) {
-                setError(
-                  error instanceof Error
-                    ? error.message
-                    : "Could not mark this reminder as seen. Try again.",
-                );
+                await seen.mutateAsync(n.id);
+              } catch {
+                // The row and error are restored by the mutation callbacks.
               } finally {
-                setBusy("");
+                lock.current = false;
               }
             }}
           >

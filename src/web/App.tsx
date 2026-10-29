@@ -44,6 +44,7 @@ import {
   useParams,
 } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCrmWrites } from "./data/use-crm-writes";
 import type { CustomerSummary } from "../shared/api";
 import { request } from "./data/api";
 import {
@@ -101,6 +102,7 @@ const Context = createContext<{
   run: (work: () => Promise<unknown>, message?: string) => Promise<boolean>;
   role: string;
   error: string;
+  writes: ReturnType<typeof useCrmWrites>;
 }>({} as never);
 const useCRM = () => useContext(Context);
 function DeleteRecord({
@@ -116,14 +118,18 @@ function DeleteRecord({
   revision: number;
   blocked?: string;
 }) {
-  const { run, role, error } = useCRM();
+  const { run, role, error, writes } = useCRM();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false),
     [pending, setPending] = useState(false);
   if (role !== "manager") return null;
   return (
     <>
-      <Button variant="ghost" onClick={() => setOpen(true)}>
+      <Button
+        variant="ghost"
+        disabled={writes.pending}
+        onClick={() => setOpen(true)}
+      >
         Delete {kind}
       </Button>
       <Modal
@@ -290,15 +296,24 @@ export default function App() {
     retry: false,
   });
   const me = useQuery({ queryKey: ["me"], queryFn: session.me, retry: false });
+  const writes = useCrmWrites(me.data);
   const [loginBusy, setLoginBusy] = useState(false),
     [loginError, setLoginError] = useState("");
   const query = useQuery({
     queryKey: ["crm", me.data?.id],
-    queryFn: () => repository.read(),
+    queryFn: ({ signal }) => repository.read(signal),
+    refetchOnWindowFocus: !writes.pending,
+    refetchOnReconnect: !writes.pending,
     enabled: !!me.data,
   });
   const client = useQueryClient();
   const [toast, setToast] = useState("");
+  useEffect(() => {
+    if (!writes.succeeded) return;
+    setToast("Saved");
+    const timer = window.setTimeout(() => setToast(""), 4500);
+    return () => window.clearTimeout(timer);
+  }, [writes.succeeded]);
   const [error, setError] = useState("");
   const [mobile, setMobile] = useState(false);
   const role = me.data?.role || "staff";
@@ -387,6 +402,10 @@ export default function App() {
     };
   }, [mobile]);
   async function run(work: () => Promise<unknown>, message = "Saved") {
+    if (writes.locked()) {
+      setError("Please wait for the current save to finish.");
+      return false;
+    }
     setError("");
     try {
       await work();
@@ -572,6 +591,27 @@ export default function App() {
           </div>
         )}
         <main id="main-content" tabIndex={-1}>
+          {writes.pending && (
+            <div role="status" className="notice">
+              Saving changes…
+            </div>
+          )}
+          {writes.error && (
+            <div role="alert" className="error-banner">
+              <span>
+                {writes.error.message} Please review the record or retry the
+                save.
+              </span>
+              {writes.retryable && (
+                <Button variant="ghost" onClick={() => writes.retry()}>
+                  Retry save
+                </Button>
+              )}
+              <Button variant="ghost" onClick={() => writes.reset()}>
+                Dismiss
+              </Button>
+            </div>
+          )}
           {error && (
             <div role="alert" className="error-banner">
               {error}
@@ -596,7 +636,9 @@ export default function App() {
               <Button onClick={() => query.refetch()}>Try again</Button>
             </div>
           ) : (
-            <Context.Provider value={{ data: query.data, run, role, error }}>
+            <Context.Provider
+              value={{ data: query.data, run, role, error, writes }}
+            >
               <Routes>
                 <Route path="/account/security" element={<AccountSecurity />} />
                 <Route
@@ -813,7 +855,9 @@ export default function App() {
                       ))}
                     </select>
                   </label>
-                  <Button type="submit">Create enquiry</Button>
+                  <Button type="submit" disabled={writes.pending}>
+                    Create enquiry
+                  </Button>
                 </form>
               </Modal>
             </Context.Provider>
@@ -1718,7 +1762,7 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
 function Detail() {
   const stages = useStageLabels();
   const { id } = useParams();
-  const { data, run, role, error } = useCRM();
+  const { data, run, role, error, writes } = useCRM();
   const e = data.enquiries.find((e) => e.id === id);
   const [tab, setTab] = useViewParam("tab", "overview");
   const location = useLocation();
@@ -1736,6 +1780,12 @@ function Detail() {
     .sort((a, b) => a.due.localeCompare(b.due));
   const next = pending[0];
   const rescheduling = pending.find((t) => t.id === taskId);
+  const failed = writes.failedWrite;
+  const retryOriginal =
+    writes.retryable &&
+    failed?.kind === "command" &&
+    failed.id === e.id &&
+    failed.command.type === (action === "cancel" ? "taskStatus" : action);
   const returnTo =
     typeof location.state?.from === "string" &&
     ["/", "/enquiries", "/bookings"].includes(location.state.from.split("?")[0])
@@ -1743,7 +1793,7 @@ function Detail() {
       : "/enquiries";
   async function submit(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
-    if (!e || busy) return;
+    if (!e || busy || writes.pending || retryOriginal) return;
     const f = new FormData(ev.currentTarget);
     const s = (key: string) => String(f.get(key) || "");
     const dubai = (v: string) =>
@@ -1837,8 +1887,12 @@ function Detail() {
     }
     setBusy(true);
     try {
-      if (await run(() => repository.command(e.id, e.revision, command)))
+      let previewed = false;
+      const saved = await writes.command(e.id, e.revision, command, () => {
+        previewed = true;
         setAction("");
+      });
+      if (saved && !previewed) setAction("");
     } finally {
       setBusy(false);
     }
@@ -1894,7 +1948,7 @@ function Detail() {
             <MessageCircle size={17} />
             Open WhatsApp
           </Button>
-          <Button onClick={() => setAction("call")}>
+          <Button disabled={writes.pending} onClick={() => setAction("call")}>
             <Phone size={16} />
             Log call
           </Button>
@@ -1976,6 +2030,7 @@ function Detail() {
         </div>
         <Button
           variant="outline"
+          disabled={writes.pending}
           onClick={() => {
             if (e.booking || (!next && !block)) setTab("payments");
             else if (!isOpen(e)) setAction("stage");
@@ -2133,6 +2188,7 @@ function Detail() {
                           <Button
                             size="sm"
                             variant="ghost"
+                            disabled={writes.pending}
                             onClick={() => {
                               setTaskId(t.id);
                               setAction("task");
@@ -2143,6 +2199,7 @@ function Detail() {
                           <Button
                             size="sm"
                             variant="ghost"
+                            disabled={writes.pending}
                             onClick={() => {
                               setTaskId(t.id);
                               setAction("cancel");
@@ -2431,10 +2488,27 @@ function Detail() {
               : "Changes are saved in activity history. Times are Asia/Dubai."
         }
       >
-        {error && (
+        {(error || writes.error) && (
           <p className="error-banner" role="alert">
-            {error}
+            {error || writes.error?.message}
           </p>
+        )}
+        {retryOriginal && (
+          <div className="notice">
+            <p>
+              The response was not confirmed. Retry the original request before
+              submitting another change.
+            </p>
+            <Button
+              type="button"
+              disabled={writes.pending}
+              onClick={async () => {
+                if (await writes.retry()) setAction("");
+              }}
+            >
+              Retry original save
+            </Button>
+          </div>
         )}
         <form onSubmit={submit}>
           {action === "note" && (
@@ -2793,7 +2867,7 @@ function Detail() {
             </Button>
             <Button
               type="submit"
-              disabled={busy}
+              disabled={busy || writes.pending || retryOriginal}
               variant={
                 ["cancel", "reverse"].includes(action)
                   ? "destructive"
@@ -2851,7 +2925,7 @@ function Timeline({ e, limit }: { e: Enquiry; limit?: number }) {
   );
 }
 function Trips() {
-  const { data, run, role } = useCRM();
+  const { data, run, role, writes } = useCRM();
   const [editing, setEditing] = useState<Trip | null>(null);
   const [preview, setPreview] = useState(false);
   const [newTrip, setNewTrip] = useState(false);
@@ -2861,7 +2935,7 @@ function Trips() {
     <>
       <Heading title="Trips">
         {role === "manager" && (
-          <Button onClick={() => setNewTrip(true)}>
+          <Button disabled={writes.pending} onClick={() => setNewTrip(true)}>
             <Plus size={16} />
             New trip
           </Button>
@@ -2932,17 +3006,21 @@ function Trips() {
                 <Button
                   variant="outline"
                   onClick={() => setEditing(t)}
-                  disabled={role !== "manager"}
+                  disabled={role !== "manager" || writes.pending}
                 >
                   Edit trip details
                 </Button>
                 {role === "manager" && (
-                  <Button variant="outline" onClick={() => setPublishing(t)}>
+                  <Button
+                    disabled={writes.pending}
+                    variant="outline"
+                    onClick={() => setPublishing(t)}
+                  >
                     Review publication
                   </Button>
                 )}
                 <Button
-                  disabled={role !== "manager"}
+                  disabled={role !== "manager" || writes.pending}
                   variant="ghost"
                   onClick={() => {
                     setRuleTrip(t.id);
@@ -3013,6 +3091,13 @@ function Trips() {
         title="Edit draft trip"
         description="Changes are saved as a draft. Existing quotations keep their agreed terms."
       >
+        {writes.error &&
+          writes.failedWrite?.kind === "trip" &&
+          writes.failedWrite.trip.id === editing?.id && (
+            <p role="alert" className="error-banner">
+              {writes.error.message}
+            </p>
+          )}
         {editing && (
           <form
             onSubmit={async (ev) => {
@@ -3020,8 +3105,8 @@ function Trips() {
               const f = new FormData(ev.currentTarget);
               const s = (k: string) => String(f.get(k) || "");
               if (
-                await run(() =>
-                  repository.saveTrip({
+                await writes.saveTrip(
+                  {
                     ...editing,
                     name: s("name"),
                     description: s("description"),
@@ -3034,7 +3119,8 @@ function Trips() {
                     deposit: s("deposit")
                       ? Math.round(Number(s("deposit")) * 100)
                       : null,
-                  }),
+                  },
+                  () => setEditing(null),
                 )
               )
                 setEditing(null);
@@ -3094,7 +3180,9 @@ function Trips() {
                 placeholder="Leave blank until content is supplied"
               />
             </label>
-            <Button type="submit">Save draft trip</Button>
+            <Button type="submit" disabled={writes.pending}>
+              {writes.pending ? "Saving…" : "Save draft trip"}
+            </Button>
           </form>
         )}
       </Modal>

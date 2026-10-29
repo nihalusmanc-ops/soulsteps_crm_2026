@@ -95,6 +95,7 @@ export type Reminder = {
   task: string;
 };
 export const reminders = {
-  list: () => request<Reminder[]>("/notifications"),
+  list: (signal?: AbortSignal) =>
+    request<Reminder[]>("/notifications", { signal }),
   read: (id: string) => mutate(`/notifications/${id}/read`, {}),
 };
