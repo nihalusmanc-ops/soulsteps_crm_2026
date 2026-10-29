@@ -1196,7 +1196,6 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
     response = responseValue === "1";
   const setMissing = (v: boolean) => setMissingValue(v ? "1" : "");
   const setResponse = (v: boolean) => setResponseValue(v ? "1" : "");
-  const [owner, setOwner] = useViewParam("owner");
   const [tripFilter, setTripFilter] = useViewParam("trip");
   const [since] = useViewParam("since");
   const [paidSince] = useViewParam("paidSince");
@@ -1217,7 +1216,6 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
     clientStatus,
     missing,
     response,
-    owner,
     tripFilter,
     since,
     paidSince,
@@ -1237,7 +1235,6 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
             (p) => p.status === "verified" && p.date >= paidSince,
           )) &&
         (!openOnly || isOpen(e)) &&
-        (!owner || e.owner === owner) &&
         (!tripFilter || e.tripId === tripFilter) &&
         (!since || e.createdAt >= since) &&
         (!stage || e.stage === stage) &&
@@ -1343,22 +1340,6 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
               ))}
             </select>
             <select
-              aria-label="Filter owner"
-              value={owner}
-              onChange={(e) => setOwner(e.target.value)}
-            >
-              <option value="">All owners</option>
-              {Array.from(
-                new Set(
-                  data.enquiries
-                    .filter((e) => !e.shared && e.owner !== "Shared team")
-                    .map((e) => e.owner),
-                ),
-              ).map((name) => (
-                <option key={name}>{name}</option>
-              ))}
-            </select>
-            <select
               aria-label="Filter trip"
               value={tripFilter}
               onChange={(e) => setTripFilter(e.target.value)}
@@ -1452,7 +1433,6 @@ function Enquiries({ onCreate }: { onCreate: () => void }) {
           <div className="filter-summary">
             <span>
               {activeFilters} active filter{activeFilters === 1 ? "" : "s"}
-              {owner ? " · " + owner : ""}
               {tripFilter
                 ? " · " + data.trips.find((t) => t.id === tripFilter)?.name
                 : ""}
