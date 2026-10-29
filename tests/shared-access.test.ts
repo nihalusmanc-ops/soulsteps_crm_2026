@@ -3,6 +3,10 @@ import { DatabaseSync } from "node:sqlite";
 import { readdirSync, readFileSync } from "node:fs";
 import { Repository } from "../src/server/repository";
 import { seed } from "../src/shared/seed";
+import { Hono } from "hono";
+import { managementRoutes } from "../src/server/management";
+import type { AppEnv } from "../src/server/types";
+import { createTripSchema } from "../src/shared/api";
 
 let sqlite: DatabaseSync, db: D1Database;
 class Statement {
@@ -94,6 +98,135 @@ beforeEach(() => {
   } as unknown as D1Database;
 });
 afterEach(() => sqlite.close());
+it("creates a full trip draft atomically, preserves fields and replays the same creation", async () => {
+  const app = new Hono<AppEnv>();
+  app.onError((error, c) =>
+    c.json(
+      { message: error.message },
+      (error as { status?: 403 }).status || 500,
+    ),
+  );
+  app.use("*", async (c, next) => {
+    c.set("identity", { ...staff, role: "manager" });
+    c.set("requestId", "trip-create-request");
+    await next();
+  });
+  app.route("/", managementRoutes);
+  const input = {
+    name: "Test trip",
+    destination: "Test destination",
+    description: "Test description",
+    type: "fixed",
+    departure: "2027-02-28",
+    price: 1200000,
+    deposit: 300000,
+    availabilityNote: "Check supplier",
+    itinerary: "Day 1: Arrival",
+  };
+  const send = () =>
+    app.request(
+      "https://example.invalid/management/trips",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": "trip-create-key-0001",
+        },
+        body: JSON.stringify(input),
+      },
+      { DB: db } as any,
+    );
+  const response = await send();
+  expect(response.status).toBe(201);
+  const result = (await response.json()) as { id: string };
+  const stored = sqlite
+    .prepare("SELECT data FROM trips WHERE id=?")
+    .get(result.id)!;
+  expect(JSON.parse(String(stored.data))).toMatchObject({
+    ...input,
+    status: "draft",
+    version: 1,
+    groupVisaPolicy: "review",
+  });
+  expect(await (await send()).json()).toEqual(result);
+  expect(sqlite.prepare("SELECT COUNT(*) AS n FROM trips").get()!.n).toBe(2);
+});
+it("keeps staff unable to create trips and validates date and deposit inputs", async () => {
+  const app = new Hono<AppEnv>();
+  app.onError((error, c) =>
+    c.json(
+      { message: error.message },
+      (error as { status?: 403 }).status || 500,
+    ),
+  );
+  app.use("*", async (c, next) => {
+    c.set("identity", staff);
+    await next();
+  });
+  app.route("/", managementRoutes);
+  const minimal = {
+    name: "Trip",
+    destination: "Destination",
+    type: "bespoke",
+    description: "",
+  };
+  const result = await app.request(
+    "https://example.invalid/management/trips",
+    { method: "POST", body: JSON.stringify(minimal) },
+    { DB: db } as any,
+  );
+  expect(result.status).toBe(403);
+  expect(createTripSchema.parse(minimal)).toMatchObject({
+    departure: "",
+    price: null,
+    deposit: null,
+    itinerary: "",
+  });
+  expect(
+    createTripSchema.safeParse({ ...minimal, departure: "2027-02-31" }).success,
+  ).toBe(false);
+  expect(
+    createTripSchema.safeParse({ ...minimal, price: 100, deposit: 200 })
+      .success,
+  ).toBe(false);
+});
+it("trip edits persist destination and journey type without rewriting accepted quotations", async () => {
+  const repository = new Repository(db, { ...staff, role: "manager" });
+  await repository.command(
+    "SHARED",
+    0,
+    {
+      type: "quote",
+      total: 100000,
+      deposit: 20000,
+      terms: "Original accepted terms",
+    },
+    "trip-quote",
+    "quote",
+    "request",
+  );
+  const before = (await repository.enquiry("SHARED")).quote;
+  const trip = (await repository.state()).trips[0];
+  await repository.saveTrip(
+    {
+      ...trip,
+      destination: "Updated destination",
+      type: "bespoke",
+      price: 150000,
+      deposit: 30000,
+    },
+    "edit-full-trip",
+    "edit-trip",
+    "request",
+  );
+  expect((await repository.state()).trips[0]).toMatchObject({
+    destination: "Updated destination",
+    type: "bespoke",
+    price: 150000,
+    deposit: 30000,
+  });
+  expect((await repository.enquiry("SHARED")).quote).toEqual(before);
+});
 it("persists contact and trip edits while preserving original notes", async () => {
   const repository = new Repository(db, staff);
   const before = await repository.enquiry("SHARED");

@@ -16,13 +16,13 @@ import {
   EmptyState,
   useViewParam,
 } from "./components/ui/workspace";
-import { RuleManager, PublishTrip } from "./Management";
+import { TripsWorkspace } from "./TripsWorkspace";
 import { LoginPage } from "./LoginPage";
 import { AccountSecurity } from "./AccountSecurity";
 import { ProfileMenu } from "./ProfileMenu";
 import { SettingsPage } from "./SettingsPage";
 import { DueReminders } from "./DueReminders";
-import { useWorkspace, management } from "./data/management";
+import { useWorkspace } from "./data/management";
 import { Settings as SettingsIcon } from "lucide-react";
 import {
   createContext,
@@ -95,7 +95,6 @@ import {
   type Enquiry,
   type Stage,
   type State,
-  type Trip,
 } from "../shared/domain";
 const Context = createContext<{
   data: State;
@@ -658,6 +657,10 @@ export default function App() {
                   element={<Detail key={location.pathname} />}
                 />
                 <Route path="/trips" element={<Trips />} />
+                <Route
+                  path="/trips/:id"
+                  element={<Trips key={location.pathname} />}
+                />
                 <Route path="/bookings" element={<Bookings />} />
                 <Route
                   path="/overview"
@@ -1768,7 +1771,10 @@ function Detail() {
     failed.command.type === (action === "cancel" ? "taskStatus" : action);
   const returnTo =
     typeof location.state?.from === "string" &&
-    ["/", "/enquiries", "/bookings"].includes(location.state.from.split("?")[0])
+    (["/", "/enquiries", "/bookings"].includes(
+      location.state.from.split("?")[0],
+    ) ||
+      /^\/trips\/[^/?]+(?:\?|$)/.test(location.state.from))
       ? location.state.from
       : "/enquiries";
   async function submit(ev: FormEvent<HTMLFormElement>) {
@@ -1899,7 +1905,9 @@ function Detail() {
           ? "All bookings"
           : returnTo.startsWith("/enquiries")
             ? "All enquiries"
-            : "Today"}
+            : returnTo.startsWith("/trips/")
+              ? "Back to trip"
+              : "Today"}
       </Link>
       <div className="detail-heading">
         <div className="detail-person">
@@ -2912,288 +2920,30 @@ function Timeline({ e, limit }: { e: Enquiry; limit?: number }) {
   );
 }
 function Trips() {
-  const { data, run, role, writes } = useCRM();
-  const [editing, setEditing] = useState<Trip | null>(null);
-  const [preview, setPreview] = useState(false);
-  const [newTrip, setNewTrip] = useState(false);
-  const [ruleTrip, setRuleTrip] = useState("");
-  const [publishing, setPublishing] = useState<Trip | null>(null);
+  const { data, run, role, writes, error } = useCRM();
+  const stageLabels = useStageLabels();
   return (
-    <>
-      <Heading title="Trips">
-        {role === "manager" && (
-          <Button disabled={writes.pending} onClick={() => setNewTrip(true)}>
-            <Plus size={16} />
-            New trip
-          </Button>
-        )}
-      </Heading>
-      <div className="trips-grid">
-        {data.trips.map((t) => (
-          <section className="panel trip-card" key={t.id}>
-            <div className="trip-card-top">
-              <span className="trip-destination">
-                <Map size={18} />
-                {t.destination}
-              </span>
-              <Badge kind={t.status === "published" ? "confirmed" : "draft"}>
-                {t.status}
-              </Badge>
-            </div>
-            <div className="trip-body">
-              <div className="eyebrow">
-                {t.type} JOURNEY · VERSION {t.version}
-              </div>
-              <h2>{t.name}</h2>
-              <p>{t.description}</p>
-              <div className="trip-facts">
-                <div>
-                  <CalendarDays size={17} />
-                  <span>{t.departure || "Departure dates pending"}</span>
-                </div>
-                <div>
-                  <Wallet size={17} />
-                  <span>
-                    {t.price
-                      ? `${money(t.price)} / person`
-                      : "Approved pricing not supplied"}
-                  </span>
-                </div>
-                <div>
-                  <Map size={17} />
-                  <span>
-                    {t.itinerary
-                      ? "Draft itinerary notes saved"
-                      : "Approved itinerary pending"}
-                  </span>
-                </div>
-              </div>
-              <Link
-                className="trip-enquiries"
-                to={"/enquiries?trip=" + encodeURIComponent(t.id) + "&open=1"}
-              >
-                {
-                  data.enquiries.filter((e) => e.tripId === t.id && isOpen(e))
-                    .length
-                }{" "}
-                open enquiries <ArrowRight size={15} />
-              </Link>
-              <div className="trip-actions">
-                <DeleteRecord
-                  kind="trip"
-                  id={t.id}
-                  name={t.name}
-                  revision={t.version}
-                  blocked={
-                    data.enquiries.some((e) => e.tripId === t.id)
-                      ? "This trip has enquiries and cannot be deleted while they are linked to it."
-                      : undefined
-                  }
-                />
-                <Button
-                  variant="outline"
-                  onClick={() => setEditing(t)}
-                  disabled={role !== "manager" || writes.pending}
-                >
-                  Edit trip details
-                </Button>
-                {role === "manager" && (
-                  <Button
-                    disabled={writes.pending}
-                    variant="outline"
-                    onClick={() => setPublishing(t)}
-                  >
-                    Review publication
-                  </Button>
-                )}
-                <Button
-                  disabled={role !== "manager" || writes.pending}
-                  variant="ghost"
-                  onClick={() => {
-                    setRuleTrip(t.id);
-                    setPreview(true);
-                  }}
-                >
-                  Preview fit rules <ArrowRight size={15} />
-                </Button>
-              </div>
-            </div>
-          </section>
-        ))}
-      </div>
-      {!data.trips.length && (
-        <EmptyState title="No trips yet">
-          <p>Create a draft trip to begin.</p>
-        </EmptyState>
+    <TripsWorkspace
+      data={data}
+      run={run}
+      role={role}
+      writes={writes}
+      error={error}
+      stageLabels={stageLabels}
+      renderDelete={(trip) => (
+        <DeleteRecord
+          kind="trip"
+          id={trip.id}
+          name={trip.name}
+          revision={trip.version}
+          blocked={
+            data.enquiries.some((e) => e.tripId === trip.id)
+              ? "This trip has enquiries and cannot be deleted while they are linked to it."
+              : undefined
+          }
+        />
       )}
-      <p className="micro">Trip edits do not change accepted quotations.</p>
-      <Modal
-        open={newTrip}
-        onClose={() => setNewTrip(false)}
-        title="Create draft trip"
-        description="Add the trip details you have. You can complete missing details later."
-      >
-        <form
-          onSubmit={async (ev) => {
-            ev.preventDefault();
-            const f = new FormData(ev.currentTarget);
-            if (
-              await run(() =>
-                management.createTrip({
-                  name: String(f.get("name")),
-                  destination: String(f.get("destination")),
-                  description: String(f.get("description") || ""),
-                  type: String(f.get("type")) as "fixed" | "bespoke",
-                }),
-              )
-            )
-              setNewTrip(false);
-          }}
-        >
-          <label>
-            Trip name
-            <input name="name" required maxLength={150} />
-          </label>
-          <label>
-            Destination
-            <input name="destination" required maxLength={150} />
-          </label>
-          <label>
-            Journey type
-            <select name="type">
-              <option value="fixed">Fixed</option>
-              <option value="bespoke">Bespoke</option>
-            </select>
-          </label>
-          <label>
-            Draft description
-            <textarea name="description" />
-          </label>
-          <Button type="submit">Create draft</Button>
-        </form>
-      </Modal>
-      <Modal
-        open={!!editing}
-        onClose={() => setEditing(null)}
-        title="Edit draft trip"
-        description="Changes are saved as a draft. Existing quotations keep their agreed terms."
-      >
-        {writes.error &&
-          writes.failedWrite?.kind === "trip" &&
-          writes.failedWrite.trip.id === editing?.id && (
-            <p role="alert" className="error-banner">
-              {writes.error.message}
-            </p>
-          )}
-        {editing && (
-          <form
-            onSubmit={async (ev) => {
-              ev.preventDefault();
-              const f = new FormData(ev.currentTarget);
-              const s = (k: string) => String(f.get(k) || "");
-              if (
-                await writes.saveTrip(
-                  {
-                    ...editing,
-                    name: s("name"),
-                    description: s("description"),
-                    departure: s("departure"),
-                    availabilityNote: s("availability"),
-                    itinerary: s("itinerary"),
-                    price: s("price")
-                      ? Math.round(Number(s("price")) * 100)
-                      : null,
-                    deposit: s("deposit")
-                      ? Math.round(Number(s("deposit")) * 100)
-                      : null,
-                  },
-                  () => setEditing(null),
-                )
-              )
-                setEditing(null);
-            }}
-          >
-            <label>
-              Trip name
-              <input name="name" defaultValue={editing.name} required />
-            </label>
-            <label>
-              Description
-              <textarea name="description" defaultValue={editing.description} />
-            </label>
-            <label>
-              Departure date
-              <DateTimeField
-                pickerLabel="Departure date"
-                type="date"
-                name="departure"
-                defaultValue={editing.departure}
-              />
-            </label>
-            <div className="form-grid">
-              <label>
-                Draft price per person · AED
-                <input
-                  type="number"
-                  name="price"
-                  min="0.01"
-                  step="0.01"
-                  defaultValue={editing.price ? editing.price / 100 : ""}
-                />
-              </label>
-              <label>
-                Draft deposit · AED
-                <input
-                  type="number"
-                  name="deposit"
-                  min="0.01"
-                  step="0.01"
-                  defaultValue={editing.deposit ? editing.deposit / 100 : ""}
-                />
-              </label>
-            </div>
-            <label>
-              Availability note
-              <textarea
-                name="availability"
-                defaultValue={editing.availabilityNote}
-              />
-            </label>
-            <label>
-              Draft itinerary / content notes
-              <textarea
-                name="itinerary"
-                defaultValue={editing.itinerary}
-                placeholder="Leave blank until content is supplied"
-              />
-            </label>
-            <Button type="submit" disabled={writes.pending}>
-              {writes.pending ? "Saving…" : "Save draft trip"}
-            </Button>
-          </form>
-        )}
-      </Modal>
-      <Modal
-        open={preview}
-        onClose={() => setPreview(false)}
-        title="Trip-fit rule preview"
-        description="Review affected profiles before publishing a version. Overrides and historical closed profiles are preserved."
-      >
-        {ruleTrip && (
-          <RuleManager tripId={ruleTrip} done={() => setPreview(false)} />
-        )}
-      </Modal>
-      <Modal
-        open={!!publishing}
-        onClose={() => setPublishing(null)}
-        title="Review trip publication"
-        description="Publish approved draft content for manual CRM use."
-      >
-        {publishing && (
-          <PublishTrip trip={publishing} done={() => setPublishing(null)} />
-        )}
-      </Modal>
-    </>
+    />
   );
 }
 function Bookings() {

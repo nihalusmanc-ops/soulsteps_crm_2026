@@ -184,6 +184,7 @@ test("trip content previews immediately while quotations wait for confirmation",
     await route.fulfill({ json: { version: state.trips[0].version } });
   });
   await page.goto("/trips");
+  await page.getByRole("link", { name: "Test journey", exact: true }).click();
   await page
     .getByRole("button", { name: "Edit trip details", exact: true })
     .click();

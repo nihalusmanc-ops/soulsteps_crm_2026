@@ -202,6 +202,10 @@ test("notes are beside leads, filter by client status and open in a responsive k
   await expect(create).not.toBeVisible();
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/trips");
+  await page
+    .locator(".trips-list-desktop")
+    .getByLabel("More actions for Preview trip")
+    .click();
   await page.getByRole("button", { name: "Delete trip", exact: true }).click();
   const blocked = page.getByRole("dialog", {
     name: "Delete trip?",
@@ -235,6 +239,10 @@ test("notes are beside leads, filter by client status and open in a responsive k
   await expect(page).toHaveURL(/\/enquiries$/);
   expect(deleted).toBe("DELETE");
   await page.goto("/trips");
+  await page
+    .locator(".trips-list-desktop")
+    .getByLabel("More actions for Preview trip")
+    .click();
   await page.getByRole("button", { name: "Delete trip", exact: true }).click();
   const tripDeletion = page.getByRole("dialog", {
     name: "Delete trip?",

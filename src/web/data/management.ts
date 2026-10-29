@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { request, mutate } from "./api";
+import type { CreateTripInput } from "../../shared/api";
 import {
   defaultSettings,
   type WorkspaceSettings,
@@ -9,12 +10,8 @@ import {
   type BackupRun,
 } from "../../shared/management";
 export const management = {
-  createTrip: (input: {
-    name: string;
-    destination: string;
-    description: string;
-    type: "fixed" | "bespoke";
-  }) => mutate<{ id: string }>("/management/trips", input),
+  createTrip: (input: CreateTripInput) =>
+    mutate<{ id: string }>("/management/trips", input),
   settings: () => request<WorkspaceSettings>("/settings"),
   saveSettings: (settings: WorkspaceSettings) =>
     mutate("/management/settings", settings, "PUT"),

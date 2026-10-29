@@ -17,6 +17,7 @@ import {
   type WorkspaceSettings,
 } from "../shared/management";
 import type { Trip } from "../shared/domain";
+import { createTripSchema } from "../shared/api";
 import { digest, requestKey } from "./request";
 import { sweep } from "../jobs/service";
 const routes = new Hono<AppEnv>();
@@ -540,15 +541,7 @@ routes.get("/management/backups/:id/receipts/:fileId", async (c) => {
   return c.body(receipt.body);
 });
 routes.post("/management/trips", async (c) => {
-  const input = z
-    .object({
-      name: z.string().trim().min(1).max(150),
-      destination: z.string().trim().min(1).max(150),
-      description: z.string().trim().max(8000),
-      type: z.enum(["fixed", "bespoke"]),
-    })
-    .strict()
-    .parse(await c.req.json());
+  const input = createTripSchema.parse(await c.req.json());
   const key = requestKey(c.req.header("Idempotency-Key")),
     hash = await digest(JSON.stringify(input)),
     repo = actorRepo(c),
@@ -562,11 +555,6 @@ routes.post("/management/trips", async (c) => {
     id,
     status: "draft",
     version: 1,
-    departure: "",
-    availabilityNote: "Check availability manually.",
-    itinerary: "",
-    price: null,
-    deposit: null,
     groupVisaPolicy: "review",
   };
   const response = { id };

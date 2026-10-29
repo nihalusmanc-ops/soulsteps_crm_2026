@@ -8,6 +8,7 @@ import "./workspace.css";
 import "./quiet.css";
 import "./pickers.css";
 import "./lead-notes.css";
+import "./trips.css";
 const client = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 1000 } },
 });

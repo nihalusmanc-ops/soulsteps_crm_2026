@@ -63,3 +63,37 @@ export const tripSchema = z
     (t) => t.price === null || t.deposit === null || t.deposit <= t.price,
     { message: "Deposit exceeds trip price" },
   );
+export const createTripSchema = z
+  .object({
+    name: z.string().trim().min(1).max(150),
+    destination: z.string().trim().min(1).max(150),
+    type: z.enum(["fixed", "bespoke"]),
+    description: z.string().trim().max(8000),
+    departure: z
+      .string()
+      .refine(
+        (v) =>
+          !v ||
+          (/^\d{4}-\d{2}-\d{2}$/.test(v) &&
+            Number.isFinite(Date.parse(v)) &&
+            new Date(v).toISOString().slice(0, 10) === v),
+        "Choose a valid departure date.",
+      )
+      .default(""),
+    price: z.number().int().positive().max(100000000).nullable().default(null),
+    deposit: z
+      .number()
+      .int()
+      .positive()
+      .max(100000000)
+      .nullable()
+      .default(null),
+    availabilityNote: z.string().max(4000).default(""),
+    itinerary: z.string().max(20000).default(""),
+  })
+  .strict()
+  .refine(
+    (t) => t.price === null || t.deposit === null || t.deposit <= t.price,
+    { message: "Deposit exceeds trip price.", path: ["deposit"] },
+  );
+export type CreateTripInput = z.input<typeof createTripSchema>;
