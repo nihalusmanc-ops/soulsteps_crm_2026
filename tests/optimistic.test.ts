@@ -6,6 +6,7 @@ import {
   type CrmWrite,
 } from "../src/web/data/optimistic";
 import type { Command } from "../src/shared/domain";
+import { applyCommand, verifiedTotal } from "../src/shared/domain";
 const actor = {
   id: "STAFF",
   name: "Test staff",
@@ -65,16 +66,10 @@ it("updates shared customer contact details but waits for authoritative trip-fit
   expect(preview.enquiries[0].rank).toBe(e.rank);
   expect(rollbackWrite(preview, state, write)).toEqual(state);
 });
-it("never previews payments, verification, booking, quotations or reviewed overrides", () => {
+it("never previews verification, booking, quotations or reviewed overrides", () => {
   const state = seed(),
     e = state.enquiries[0];
   const commands: Command[] = [
-    {
-      type: "payment",
-      amount: 100,
-      date: new Date().toISOString(),
-      reference: "test",
-    },
     { type: "verify", paymentId: "test" },
     { type: "reverse", paymentId: "test", reason: "test" },
     { type: "confirm" },
@@ -89,6 +84,35 @@ it("never previews payments, verification, booking, quotations or reviewed overr
         actor,
       ),
     ).toBeNull();
+});
+it("previews new payments as unverified without changing verified funds or bookings, and rolls them back", () => {
+  const state = seed();
+  state.enquiries[0] = applyCommand(
+    state.enquiries[0],
+    { type: "quote", total: 100000, deposit: 20000, terms: "Test terms" },
+    "review",
+    { actor: actor.name, demo: false },
+  );
+  const e = state.enquiries[0],
+    write: CrmWrite = {
+      kind: "command",
+      id: e.id,
+      revision: e.revision,
+      command: {
+        type: "payment",
+        amount: 20000,
+        date: new Date().toISOString(),
+        reference: "TEST-REF",
+      },
+    };
+  const preview = previewWrite(state, write, actor)!;
+  expect(preview.enquiries[0].payments.at(-1)).toMatchObject({
+    reference: "TEST-REF",
+    status: "pending",
+  });
+  expect(verifiedTotal(preview.enquiries[0])).toBe(verifiedTotal(e));
+  expect(preview.enquiries[0].booking).toEqual(e.booking);
+  expect(rollbackWrite(preview, state, write)).toEqual(state);
 });
 it("previews trip content edits but keeps amount changes server-confirmed", () => {
   const state = seed(),

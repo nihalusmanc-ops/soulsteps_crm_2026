@@ -10,9 +10,15 @@ export type CrmWrite =
   | { kind: "command"; id: string; revision: number; command: Command }
   | { kind: "trip"; trip: Trip };
 export function canPreview(command: Command) {
-  return ["note", "call", "task", "taskStatus", "stage", "qualify"].includes(
-    command.type,
-  );
+  return [
+    "note",
+    "call",
+    "task",
+    "taskStatus",
+    "stage",
+    "qualify",
+    "payment",
+  ].includes(command.type);
 }
 export function previewWrite(
   state: State,

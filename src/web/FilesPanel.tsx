@@ -3,7 +3,13 @@ import { useState } from "react";
 import { receipts } from "./data/api";
 import { Button } from "./components/ui/button";
 import type { Enquiry } from "../shared/domain";
-export function FilesPanel({ enquiry }: { enquiry: Enquiry }) {
+export function FilesPanel({
+  enquiry,
+  saving = false,
+}: {
+  enquiry: Enquiry;
+  saving?: boolean;
+}) {
   const query = useQuery({
     queryKey: ["files", enquiry.id],
     queryFn: () => receipts.list(enquiry.id),
@@ -22,6 +28,7 @@ export function FilesPanel({ enquiry }: { enquiry: Enquiry }) {
         className="receipt-form"
         onSubmit={async (ev) => {
           ev.preventDefault();
+          if (saving || busy) return;
           const form = ev.currentTarget;
           const f = new FormData(form);
           const file = f.get("file");
@@ -50,11 +57,12 @@ export function FilesPanel({ enquiry }: { enquiry: Enquiry }) {
             name="file"
             accept="application/pdf,image/png,image/jpeg"
             required
+            disabled={saving || busy}
           />
         </label>
         <label>
           Link to payment
-          <select name="payment">
+          <select name="payment" disabled={saving || busy}>
             <option value="">Enquiry only</option>
             {enquiry.payments.map((p) => (
               <option key={p.id} value={p.id}>
@@ -63,7 +71,7 @@ export function FilesPanel({ enquiry }: { enquiry: Enquiry }) {
             ))}
           </select>
         </label>
-        <Button type="submit" disabled={busy}>
+        <Button type="submit" disabled={busy || saving}>
           {busy ? "Uploading…" : "Upload private receipt"}
         </Button>
       </form>

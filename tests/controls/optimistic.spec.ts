@@ -276,7 +276,7 @@ test("seen reminders disappear immediately and return when saving fails", async 
   ).toBeVisible();
   await expect(page.getByRole("alert")).toContainText("Reminder update failed");
 });
-test("an interrupted payment response keeps the form safe and retries the original payment", async ({
+test("an interrupted payment response reconciles the saved record and retries without duplication", async ({
   page,
 }) => {
   const state = await setup(page),
@@ -321,18 +321,98 @@ test("an interrupted payment response keeps the form safe and retries the origin
     .getByLabel("Payment reference", { exact: true })
     .fill("TEST-REFERENCE");
   await dialog.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(dialog.getByRole("alert")).toContainText(
+  await expect(dialog).not.toBeVisible();
+  await expect(page.getByRole("alert")).toContainText(
     "Payment response interrupted",
   );
-  await expect(
-    dialog.getByRole("button", { name: "Save", exact: true }),
-  ).toBeDisabled();
-  await dialog
-    .getByRole("button", { name: "Retry original save", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Retry save", exact: true }).click();
   await expect(dialog).not.toBeVisible();
   expect(keys).toHaveLength(2);
   expect(keys[1]).toBe(keys[0]);
   expect(state.enquiries[0].payments).toHaveLength(1);
   expect(state.enquiries[0].payments[0].status).toBe("pending");
+});
+test("payment entry appears immediately as unverified, rolls back on failure and never enables confirmation", async ({
+  page,
+}) => {
+  const state = await setup(page);
+  state.enquiries[0] = applyCommand(
+    state.enquiries[0],
+    { type: "quote", total: 100000, deposit: 20000, terms: "Agreed terms" },
+    "review",
+    { actor: actor.name, demo: false },
+  );
+  let hold = gate(),
+    fail = true;
+  const keys: string[] = [];
+  await page.route("**/api/enquiries/LEAD/commands", async (route) => {
+    const body = route.request().postDataJSON();
+    keys.push(route.request().headers()["idempotency-key"]);
+    await hold.promise;
+    if (fail)
+      await route.fulfill({
+        status: 503,
+        json: { message: "Payment could not be saved" },
+      });
+    else {
+      state.enquiries[0] = applyCommand(
+        state.enquiries[0],
+        body.command,
+        "review",
+        { actor: actor.name, demo: false },
+      );
+      await route.fulfill({ json: { revision: state.enquiries[0].revision } });
+    }
+  });
+  await page.goto("/enquiries/LEAD?tab=payments");
+  await expect(page.getByText(/fictional/i)).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Record payment", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: "Record payment",
+    exact: true,
+  });
+  await dialog.getByLabel(/Amount/).fill("200");
+  await dialog
+    .getByLabel("Payment reference", { exact: true })
+    .fill("IMMEDIATE-PAYMENT");
+  await dialog.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  const row = page
+    .locator(".payment-row")
+    .filter({ hasText: "IMMEDIATE-PAYMENT" });
+  await expect(row).toContainText("Unverified");
+  await expect(
+    row.getByRole("button", { name: "Verify funds", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Confirm booking", exact: true }),
+  ).toBeDisabled();
+  expect(state.enquiries[0].payments).toHaveLength(0);
+  hold.release();
+  await expect(page.getByRole("alert")).toContainText(
+    "Payment could not be saved",
+  );
+  await expect(row).toHaveCount(0);
+  hold = gate();
+  fail = false;
+  await page.getByRole("button", { name: "Retry save", exact: true }).click();
+  await expect.poll(() => keys.length).toBe(2);
+  expect(keys[1]).toBe(keys[0]);
+  hold.release();
+  await expect(row).toContainText("Unverified");
+  await expect(
+    row.getByRole("button", { name: "Verify funds", exact: true }),
+  ).toBeEnabled();
+  await expect(
+    page.getByRole("button", { name: "Confirm booking", exact: true }),
+  ).toBeDisabled();
+  expect(state.enquiries[0].payments).toHaveLength(1);
+  expect(state.enquiries[0].payments[0].status).toBe("pending");
+  await page.goto("/bookings");
+  await expect(
+    page.getByRole("heading", { name: "Bookings", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText(/fictional/i)).toHaveCount(0);
 });

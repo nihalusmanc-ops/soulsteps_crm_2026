@@ -2253,7 +2253,6 @@ function Detail() {
                 <>
                   <div className="section-head">
                     <h2>Payments & booking</h2>
-                    <Badge kind="qualification">Fictional terms only</Badge>
                   </div>
                   {e.quote ? (
                     <>
@@ -2288,7 +2287,11 @@ function Detail() {
                       </div>
                       <div className="section-head spaced">
                         <h3>Payment records</h3>
-                        <Button size="sm" onClick={() => setAction("payment")}>
+                        <Button
+                          size="sm"
+                          disabled={writes.pending}
+                          onClick={() => setAction("payment")}
+                        >
                           <Plus size={15} />
                           Record payment
                         </Button>
@@ -2313,12 +2316,13 @@ function Detail() {
                                 : "qualification"
                             }
                           >
-                            {p.status}
+                            {p.status === "pending" ? "Unverified" : p.status}
                           </Badge>
                           {p.status === "pending" && (
                             <Button
                               variant="outline"
                               size="sm"
+                              disabled={writes.pending}
                               onClick={() => {
                                 setPaymentId(p.id);
                                 setAction("verify");
@@ -2331,6 +2335,7 @@ function Detail() {
                             <Button
                               variant="ghost"
                               size="sm"
+                              disabled={writes.pending}
                               onClick={() => {
                                 setPaymentId(p.id);
                                 setAction("reverse");
@@ -2368,7 +2373,7 @@ function Detail() {
                         </div>
                         {!e.booking && (
                           <Button
-                            disabled={!!block}
+                            disabled={!!block || writes.pending}
                             onClick={() => setAction("confirm")}
                           >
                             Confirm booking
@@ -2393,7 +2398,9 @@ function Detail() {
                   </p>
                 </>
               )}
-              {tab === "files" && <FilesPanel enquiry={e} />}
+              {tab === "files" && (
+                <FilesPanel enquiry={e} saving={writes.pending} />
+              )}
             </div>
           </section>
           {tab === "overview" && (
@@ -3374,8 +3381,7 @@ function Bookings() {
         )}
       </section>
       <p className="micro">
-        Fictional amounts only. Confirmation does not reserve inventory or send
-        a customer notification.
+        Confirmation does not reserve inventory or send a customer notification.
       </p>
     </>
   );
