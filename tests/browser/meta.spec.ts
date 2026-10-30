@@ -6,7 +6,9 @@ test("manager maps a fictional form and actual local Queue creates one qualified
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/settings");
-  await page.getByRole("button", { name: "Meta intake", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Meta integration", exact: true })
+    .click();
   await expect(
     page.getByText("Live Meta is not connected", { exact: true }),
   ).toBeVisible();

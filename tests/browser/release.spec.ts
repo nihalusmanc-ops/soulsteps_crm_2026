@@ -4,7 +4,7 @@ test("release view reports operational evidence and security headers without gra
 }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  const response = await page.goto("/settings");
+  const response = await page.goto("/settings?section=release");
   expect(response!.headers()["x-frame-options"]).toBe("DENY");
   expect(response!.headers()["content-security-policy"]).toContain(
     "frame-ancestors 'none'",

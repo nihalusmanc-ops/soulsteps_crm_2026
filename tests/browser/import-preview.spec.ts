@@ -9,7 +9,7 @@ test("manager previews historical evidence without changing enquiries", async ({
   const before = await (await page.request.get("/api/state")).json();
   await page.goto("/settings");
   await page
-    .getByRole("button", { name: "Import preview", exact: true })
+    .getByRole("button", { name: "Import enquiries", exact: true })
     .click();
   await page.getByLabel("Choose preview JSON").setInputFiles({
     name: "synthetic.json",
@@ -58,7 +58,7 @@ test("reviewed synthetic import survives reload and commits once with raw histor
 }) => {
   await page.goto("/settings");
   await page
-    .getByRole("button", { name: "Import preview", exact: true })
+    .getByRole("button", { name: "Import enquiries", exact: true })
     .click();
   await page.getByLabel("Choose preview JSON").setInputFiles({
     name: "fixture.json",
