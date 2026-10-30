@@ -5,6 +5,20 @@ This folder contains the original specification and the local Soulsteps CRM impl
 
 ## Current application
 
+The current CRM is hosted on Cloudflare Workers at
+https://soulsteps-crm-staging.nihalusmanc.workers.dev for owner and staff review.
+It uses the custom Soulsteps email/password login, D1 persistence and private R2
+storage. Recent work includes the colour-led calling workspace, editable trip
+priorities, compact inline enquiry editing and optimistic updates with rollback.
+Meta intake and customer messaging automation remain disabled. The milestone
+summaries below describe earlier implementation checkpoints.
+
+Source repository: https://github.com/nihalusmanc-ops/soulsteps_crm_2026.
+GitHub stores source and runs validation. Deployment currently remains an explicit
+local build followed by `npx wrangler deploy --config wrangler.staging.jsonc`;
+pushing a commit does not yet deploy the CRM automatically. Credentials, customer
+imports, database backups and local operator scripts are excluded from Git.
+
 For account setup, start with [the guided Cloudflare staging setup](docs/20_CLOUDFLARE_SETUP.md).
 
 M6 release preparation is implemented: isolated staging/production templates, owner-evidence checks, manager readiness diagnostics, security headers, query indexes, compiled authentication checks, a synthetic restore runner and validation-only CI. Nothing is deployed; actual cloud configuration, owner approvals and live acceptance remain pending. See [the M6 release runbook](docs/19_MILESTONE_6_RELEASE_RUNBOOK.md).
