@@ -13,7 +13,6 @@ import {
 } from "../shared/calling";
 import {
   nextTask,
-  dateTime,
   dubaiDay,
   type Enquiry,
   type State,
@@ -173,13 +172,11 @@ export function CallingWorkspace({
       </div>
       <div className="calling-list" aria-label="Enquiries calling list">
         <div className="calling-columns" aria-hidden="true">
-          <span>Customer / phone</span>
-          <span>Details</span>
-          <span>Priority</span>
-          <span>Trip</span>
+          <span>Customer / details</span>
+          <span>Priority / trip</span>
           <span>Call colour</span>
           <span>Note</span>
-          <span>Follow-up / save</span>
+          <span>Follow-up · Dubai / save</span>
         </div>
         {rows.map((e) => (
           <CallRow
@@ -306,14 +303,16 @@ function CallRow({
         }}
       >
         <div className="call-customer">
-          <Link
-            className="customer-link"
-            to={`/enquiries/${e.id}`}
-            state={{ from: location.pathname + location.search }}
-          >
-            {e.name}
-          </Link>
-          {e.sample && <span className="sample-label">Sample</span>}
+          <div className="call-name-line">
+            <Link
+              className="customer-link"
+              to={`/enquiries/${e.id}`}
+              state={{ from: location.pathname + location.search }}
+            >
+              {e.name}
+            </Link>
+            {e.sample && <span className="sample-label">Sample</span>}
+          </div>
           {e.phone && !e.sample ? (
             <a className="call-phone" href={`tel:${e.phone}`}>
               <Phone size={12} />
@@ -322,91 +321,99 @@ function CallRow({
           ) : (
             <span className="call-phone">{e.phone || "No phone recorded"}</span>
           )}
-          <small>
-            {initialCallDone(e) ? "Initial call done" : "Not called"}
-          </small>
-        </div>
-        <div className="call-details">
-          <span>
-            {e.travellers ?? "—"} PAX · {groupLabels[e.group]}
-          </span>
-          <span>
-            Schengen:{" "}
-            {e.visa === "all" ? "Yes" : e.visa === "none" ? "No" : "Not set"}
-          </span>
-          <details>
-            <summary>
-              Edit details <ChevronDown size={12} />
-            </summary>
-            <div className="call-qualification">
-              <label>
-                Group
-                <select
-                  aria-label={`Group for ${e.name}`}
-                  value={group}
-                  onChange={(ev) =>
-                    setGroup(ev.target.value as Enquiry["group"])
-                  }
-                  disabled={locked}
-                >
-                  {Object.entries(groupLabels).map(([k, v]) => (
-                    <option key={k} value={k}>
-                      {v}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Schengen
-                <select
-                  aria-label={`Schengen for ${e.name}`}
-                  value={visa}
-                  onChange={(ev) => setVisa(ev.target.value as Enquiry["visa"])}
-                  disabled={locked}
-                >
-                  <option value="unknown">Not set</option>
-                  <option value="all">Yes</option>
-                  <option value="none">No</option>
-                </select>
-              </label>
-              <label>
-                PAX
-                <input
-                  type="number"
-                  min="1"
-                  max="1000"
-                  aria-label={`PAX for ${e.name}`}
-                  value={pax}
-                  onChange={(ev) => setPax(ev.target.value)}
-                  disabled={locked}
-                />
-              </label>
-              <Button
-                type="button"
-                size="sm"
-                disabled={locked}
-                onClick={() =>
-                  void save({
-                    type: "qualify",
-                    group,
-                    visa: visa as Enquiry["visa"],
-                    travellers: pax ? Number(pax) : null,
-                    temperature: e.temperature,
-                    availability: e.availability,
-                  })
-                }
-              >
-                Save details
-              </Button>
+          <div className="call-details">
+            <div className="call-facts">
+              <span>
+                {e.travellers ?? "—"} PAX · {groupLabels[e.group]}
+              </span>
+              <span>
+                Schengen:{" "}
+                {e.visa === "all"
+                  ? "Yes"
+                  : e.visa === "none"
+                    ? "No"
+                    : "Not set"}
+              </span>
             </div>
-          </details>
+            <details>
+              <summary>
+                Edit details <ChevronDown size={12} />
+              </summary>
+              <div className="call-qualification">
+                <label>
+                  Group
+                  <select
+                    aria-label={`Group for ${e.name}`}
+                    value={group}
+                    onChange={(ev) =>
+                      setGroup(ev.target.value as Enquiry["group"])
+                    }
+                    disabled={locked}
+                  >
+                    {Object.entries(groupLabels).map(([k, v]) => (
+                      <option key={k} value={k}>
+                        {v}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Schengen
+                  <select
+                    aria-label={`Schengen for ${e.name}`}
+                    value={visa}
+                    onChange={(ev) =>
+                      setVisa(ev.target.value as Enquiry["visa"])
+                    }
+                    disabled={locked}
+                  >
+                    <option value="unknown">Not set</option>
+                    <option value="all">Yes</option>
+                    <option value="none">No</option>
+                  </select>
+                </label>
+                <label>
+                  PAX
+                  <input
+                    type="number"
+                    min="1"
+                    max="1000"
+                    aria-label={`PAX for ${e.name}`}
+                    value={pax}
+                    onChange={(ev) => setPax(ev.target.value)}
+                    disabled={locked}
+                  />
+                </label>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={locked}
+                  onClick={() =>
+                    void save({
+                      type: "qualify",
+                      group,
+                      visa: visa as Enquiry["visa"],
+                      travellers: pax ? Number(pax) : null,
+                      temperature: e.temperature,
+                      availability: e.availability,
+                    })
+                  }
+                >
+                  Save details
+                </Button>
+              </div>
+            </details>
+          </div>
         </div>
         <div className="call-priority">
           <span className={e.rank ? "priority-number" : "priority-missing"}>
             {e.rank || "Needs qualification"}
           </span>
+          <div className="call-trip">{tripName}</div>
+          <small className="call-progress">
+            {initialCallDone(e) ? "Initial call done" : "Not called"}
+          </small>
         </div>
-        <div className="call-trip">{tripName}</div>
         <label className="call-colour-control">
           <span className="mobile-field-label">Call colour</span>
           {closed ? (
@@ -431,12 +438,6 @@ function CallRow({
                 </option>
               ))}
             </select>
-          )}
-          {!closed && (
-            <span className={`colour-preview swatch-${colour || "none"}`}>
-              <i />
-              {colour ? callColours[colour] : "Choose after calling"}
-            </span>
           )}
         </label>
         <div className="call-note">
@@ -510,20 +511,8 @@ function CallRow({
                   onChange={(ev) => setDue(ev.target.value)}
                   disabled={locked}
                 />
+                {!due && <small>Not scheduled</small>}
               </label>
-              {!due ? (
-                <small>Not scheduled</small>
-              ) : (
-                <small>
-                  {task &&
-                  due ===
-                    new Date(Date.parse(task.due) + 4 * 3600000)
-                      .toISOString()
-                      .slice(0, 16)
-                    ? dateTime(task.due)
-                    : "Next follow-up · Dubai"}
-                </small>
-              )}
             </>
           )}
           {!closed && (

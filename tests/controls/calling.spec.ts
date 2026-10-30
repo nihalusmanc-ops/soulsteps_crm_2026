@@ -170,7 +170,9 @@ test("qualification and standalone note/date updates work without logging calls"
   await followup.getByRole("button", { name: "Save follow-up only" }).click();
   await expect.poll(() => commands.at(-1)?.command.type).toBe("task");
   expect(commands.at(-1).command.due).toBe("2026-11-03T10:30:00.000Z");
-  await expect(followup).toContainText("3 Nov");
+  await expect(
+    followup.getByLabel("Follow-up date for Arjun Shah", { exact: true }),
+  ).toHaveValue("2026-11-03T14:30");
   await followup.locator(".call-trip").click();
   await expect(page).toHaveURL(/\/enquiries\/REVIEW-CALL-11/);
 });
@@ -205,6 +207,12 @@ test("all outcome colours are visible, conversion is derived and layouts fit des
     page.getByText("Pick up the next conversation.", { exact: true }),
   ).toBeVisible();
   await expect(page.locator(".call-row")).toHaveCount(6);
+  const heights = await page
+    .locator(".call-row")
+    .evaluateAll((rows) =>
+      rows.map((row) => row.getBoundingClientRect().height),
+    );
+  expect(Math.max(...heights)).toBeLessThan(115);
   await page.screenshot({
     path: ".wrangler/calling-desktop.png",
     fullPage: true,

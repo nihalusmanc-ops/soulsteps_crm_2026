@@ -2,7 +2,7 @@
   display: flex;
   gap: 24px;
   border-bottom: 1px solid #dedbd5;
-  margin-bottom: 22px;
+  margin-bottom: 14px;
   overflow: auto;
 }
 .calling-tabs button {
@@ -32,7 +32,7 @@
   gap: 10px;
   align-items: center;
   flex-wrap: wrap;
-  margin-bottom: 18px;
+  margin-bottom: 12px;
 }
 .calling-search {
   display: flex;
@@ -66,9 +66,9 @@
 .call-row-grid {
   display: grid;
   grid-template-columns:
-    minmax(130px, 1.1fr) minmax(120px, 0.95fr) 85px minmax(90px, 0.7fr)
-    minmax(155px, 1.15fr) minmax(160px, 1.5fr) minmax(165px, 1.25fr);
-  gap: 14px;
+    minmax(205px, 1.3fr) minmax(90px, 0.65fr)
+    minmax(165px, 1fr) minmax(170px, 1.3fr) minmax(290px, 1.65fr);
+  gap: 12px;
 }
 .calling-columns {
   padding: 13px 18px;
@@ -137,7 +137,7 @@
   --row-text: #244c2a;
 }
 .call-row-grid {
-  padding: 18px 13px;
+  padding: 10px 13px;
   margin: 0;
   align-items: start;
 }
@@ -148,7 +148,7 @@
 .call-colour-control {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 3px;
   min-width: 0;
 }
 .call-customer .customer-link {
@@ -240,8 +240,8 @@
 }
 .call-row textarea {
   width: 100%;
-  height: 76px;
-  min-height: 76px;
+  height: 62px;
+  min-height: 62px;
   resize: vertical;
   line-height: 1.5;
   padding: 8px;
@@ -384,72 +384,157 @@
   font-size: 10px;
   margin-bottom: 3px;
 }
+
+.call-name-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.call-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  font-size: 11px;
+}
+.call-details summary {
+  width: fit-content;
+  min-height: 22px;
+  padding: 2px 0;
+}
+.call-priority {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  min-width: 0;
+}
+.call-progress {
+  font-size: 10px;
+  opacity: 0.8;
+}
+.priority-number {
+  font-size: 13px;
+  padding: 2px 7px;
+}
+.call-trip {
+  font-size: 11px;
+  line-height: 1.4;
+}
+.call-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 5px 8px;
+}
+.call-actions > label {
+  min-width: 0;
+  grid-column: 1;
+  grid-row: 1;
+}
+.call-actions > button[type="submit"],
+.call-actions > .button {
+  grid-column: 2;
+  grid-row: 1;
+  min-height: 44px;
+  padding: 8px 10px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.call-actions > .note-only-save {
+  grid-column: 1/-1;
+  grid-row: 2;
+  width: auto;
+}
+.call-actions .mobile-field-label {
+  display: none;
+}
+.call-note > label {
+  gap: 0;
+}
+.call-details details {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.call-qualification {
+  padding: 8px 0 4px;
+}
 @media (min-width: 1101px) and (max-width: 1450px) {
   .calling-columns,
   .call-row-grid {
     grid-template-columns:
-      minmax(120px, 1fr) minmax(100px, 0.85fr) 65px minmax(75px, 0.6fr)
-      minmax(135px, 1fr) minmax(135px, 1.2fr) minmax(150px, 1.2fr);
-    gap: 9px;
+      minmax(180px, 1.3fr) 90px minmax(145px, 1fr) minmax(140px, 1.15fr)
+      minmax(180px, 1.2fr);
+    gap: 10px;
   }
-  .call-row-grid {
-    padding: 15px 10px;
+  .call-actions {
+    grid-template-columns: minmax(0, 1fr);
   }
-  .calling-columns {
-    padding: 12px 15px;
+  .call-actions > button[type="submit"],
+  .call-actions > .button {
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: end;
+    width: auto;
+    min-height: 32px;
+    padding: 5px 12px;
+  }
+  .call-actions > .note-only-save {
+    grid-row: 3;
   }
 }
 @media (max-width: 1100px) {
   .calling-columns {
     display: none;
   }
-  .calling-list {
-    border: 0;
-    background: transparent;
-    overflow: visible;
-  }
-  .call-row {
-    border: 1px solid color-mix(in srgb, var(--row-accent) 40%, white);
-    border-left: 5px solid var(--row-accent);
-    border-radius: 9px;
-    margin-bottom: 12px;
-  }
   .call-row-grid {
-    grid-template-columns: 1.1fr 1fr 90px;
-    gap: 16px;
-    padding: 17px;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: 10px 16px;
+    padding: 12px;
   }
   .call-customer {
-    grid-column: 1;
-  }
-  .call-details {
-    grid-column: 2;
+    grid-column: 1/3;
+    grid-row: 1;
   }
   .call-priority {
     grid-column: 3;
-  }
-  .call-trip {
-    grid-column: 1/-1;
+    grid-row: 1;
+    align-items: flex-end;
+    text-align: right;
   }
   .call-colour-control {
     grid-column: 1;
+    grid-row: 2;
   }
   .call-note {
     grid-column: 2;
+    grid-row: 2;
   }
   .call-actions {
     grid-column: 3;
-    min-width: 165px;
+    grid-row: 2;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .call-actions > button[type="submit"],
+  .call-actions > .button {
+    grid-column: 1;
+    grid-row: 2;
+    width: auto;
     justify-self: end;
   }
-  .call-row-grid {
-    grid-template-columns: 1fr 1fr minmax(165px, 0.8fr);
+  .call-actions > .note-only-save {
+    grid-row: 3;
   }
-  .mobile-field-label {
+  .mobile-field-label,
+  .call-actions .mobile-field-label {
     display: block;
     font-size: 10px;
     font-weight: 600;
     margin-bottom: 4px;
+  }
+  .call-row select {
+    min-height: 44px;
   }
   .calling-toolbar > select {
     max-width: 100%;
@@ -461,45 +546,42 @@
   .calling-tabs button {
     font-size: 13px;
   }
+  .call-details summary {
+    min-height: 32px;
+  }
 }
 @media (max-width: 600px) {
   .call-row-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 14px;
+    grid-template-columns: minmax(0, 1fr) 90px;
+    gap: 8px 12px;
   }
   .call-customer {
     grid-column: 1;
   }
   .call-priority {
     grid-column: 2;
-    grid-row: 1;
-    justify-self: end;
-  }
-  .call-details {
-    grid-column: 1;
-    grid-row: 2;
-  }
-  .call-trip {
-    grid-column: 2;
-    grid-row: 2;
   }
   .call-colour-control {
     grid-column: 1/-1;
+    grid-row: 2;
   }
   .call-note {
     grid-column: 1/-1;
+    grid-row: 3;
   }
   .call-actions {
     grid-column: 1/-1;
-    width: 100%;
-    justify-self: stretch;
-    min-width: 0;
+    grid-row: 4;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
   }
-  .call-actions button {
-    min-height: 42px;
+  .call-actions > button[type="submit"],
+  .call-actions > .button {
+    grid-column: 2;
+    grid-row: 1;
   }
-  .call-row textarea {
-    height: 84px;
+  .call-actions > .note-only-save {
+    grid-row: 2;
   }
   .calling-tabs {
     gap: 13px;
