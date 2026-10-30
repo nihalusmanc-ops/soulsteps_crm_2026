@@ -176,7 +176,7 @@ export function CallingWorkspace({
           <span>Priority / trip</span>
           <span>Call colour</span>
           <span>Note</span>
-          <span>Follow-up · Dubai / save</span>
+          <span>Follow-up / save</span>
         </div>
         {rows.map((e) => (
           <CallRow
@@ -324,7 +324,7 @@ function CallRow({
           <div className="call-details">
             <div className="call-facts">
               <span>
-                {e.travellers ?? "—"} PAX · {groupLabels[e.group]}
+                {e.travellers ?? "—"} · {groupLabels[e.group]}
               </span>
               <span>
                 Schengen:{" "}
@@ -373,12 +373,12 @@ function CallRow({
                   </select>
                 </label>
                 <label>
-                  PAX
+                  Travellers
                   <input
                     type="number"
                     min="1"
                     max="1000"
-                    aria-label={`PAX for ${e.name}`}
+                    aria-label={`Travellers for ${e.name}`}
                     value={pax}
                     onChange={(ev) => setPax(ev.target.value)}
                     disabled={locked}
@@ -502,7 +502,7 @@ function CallRow({
           {!closed && colour !== "red" && (
             <>
               <label>
-                <span className="mobile-field-label">Follow-up · Dubai</span>
+                <span className="mobile-field-label">Follow-up</span>
                 <DateTimeField
                   type="datetime-local"
                   pickerLabel={`Follow-up for ${e.name}`}

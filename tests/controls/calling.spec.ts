@@ -151,7 +151,7 @@ test("qualification and standalone note/date updates work without logging calls"
   await row.getByText("Edit details", { exact: true }).click();
   await row.getByLabel("Group for Amina Noor").selectOption("friends");
   await row.getByLabel("Schengen for Amina Noor").selectOption("all");
-  await row.getByLabel("PAX for Amina Noor").fill("4");
+  await row.getByLabel("Travellers for Amina Noor").fill("4");
   await row.getByRole("button", { name: "Save details", exact: true }).click();
   await expect(row.locator(".priority-number")).toHaveText("P4");
   await row

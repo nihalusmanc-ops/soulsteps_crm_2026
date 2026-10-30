@@ -2211,10 +2211,6 @@ function Detail() {
                         {e.rank || "Needs qualification"} · Trip fit
                       </strong>
                       <p>{e.rankReason}</p>
-                      <small>
-                        A fit rank is not buying interest or visa eligibility
-                        advice.
-                      </small>
                     </div>
                   </div>
                   {e.requestedCallback && (
