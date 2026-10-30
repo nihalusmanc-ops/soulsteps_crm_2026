@@ -1818,13 +1818,6 @@ function LegacyEnquiries({ onCreate }: { onCreate: () => void }) {
           </div>
         )}
       </section>
-      <p className="micro">
-        {data.trips.some((t) => t.activeRuleVersion)
-          ? "Reviewed trip-fit versions"
-          : "Draft trip-fit policy"}{" "}
-        · Trip fit and buying interest are independent. Open a record to change
-        stage with an activity trail.
-      </p>
     </>
   );
 }
