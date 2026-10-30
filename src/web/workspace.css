@@ -580,6 +580,10 @@ tbody tr:hover td {
 .detail-heading {
   flex-wrap: wrap;
 }
+.detail-heading > .heading-actions {
+  max-width: 100%;
+  min-width: 0;
+}
 .detail-person {
   min-width: 0;
 }

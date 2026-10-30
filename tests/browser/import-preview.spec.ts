@@ -116,7 +116,7 @@ test("reviewed synthetic import survives reload and commits once with raw histor
       exact: true,
     }),
   ).toBeVisible();
-  await expect(saved.getByRole("status")).toContainText("1 created");
+  await expect(saved.getByRole("status")).toContainText("1 imported");
   const source = await page.request.get(
     `/api/management/imports/batches/${batchId}/source`,
   );
