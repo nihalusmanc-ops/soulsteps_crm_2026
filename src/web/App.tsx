@@ -1056,26 +1056,26 @@ function Today({ onCreate }: { onCreate: () => void }) {
           label="Overdue follow-ups"
           value={overdue.length}
           foot="Review oldest commitments"
-          to="/?queue=overdue"
+          to="/today?queue=overdue"
           warning
         />
         <Metric
           label="New / unassessed"
           value={newLeads.length}
           foot="Start a conversation"
-          to="/?queue=new"
+          to="/today?queue=new"
         />
         <Metric
           label="Upcoming follow-ups"
           value={upcoming.length}
           foot="Scheduled · Dubai time"
-          to="/?queue=scheduled"
+          to="/today?queue=scheduled"
         />
         <Metric
           label="Outstanding deposits"
           value={deposits.length}
           foot="Accepted quotes · funds still needed"
-          to="/?queue=deposits"
+          to="/today?queue=deposits"
         />
       </div>
       <div className="today-grid">
@@ -1166,7 +1166,7 @@ function Today({ onCreate }: { onCreate: () => void }) {
                   <Button asChild variant="outline" size="sm">
                     <Link
                       to={`/enquiries/${e.id}`}
-                      state={{ from: "/?queue=" + tab }}
+                      state={{ from: "/today?queue=" + tab }}
                     >
                       Open <ArrowRight size={14} />
                     </Link>
@@ -1211,7 +1211,7 @@ function Today({ onCreate }: { onCreate: () => void }) {
             {!actionless.length && (
               <p className="micro">Every open enquiry has a next action.</p>
             )}
-            <Link className="panel-link" to="/?queue=missing">
+            <Link className="panel-link" to="/today?queue=missing">
               View all {actionless.length} <ArrowRight size={15} />
             </Link>
           </div>
@@ -1855,7 +1855,7 @@ function Detail() {
           : action);
   const returnTo =
     typeof location.state?.from === "string" &&
-    (["/", "/enquiries", "/bookings"].includes(
+    (["/", "/today", "/enquiries", "/bookings"].includes(
       location.state.from.split("?")[0],
     ) ||
       /^\/trips\/[^/?]+(?:\?|$)/.test(location.state.from))
@@ -1989,7 +1989,9 @@ function Detail() {
             ? "All enquiries"
             : returnTo.startsWith("/trips/")
               ? "Back to trip"
-              : "Enquiries"}
+              : returnTo.startsWith("/today")
+                ? "Daily summary"
+                : "Enquiries"}
       </Link>
       <div className="detail-heading">
         <div className="detail-person">
@@ -2608,6 +2610,7 @@ function Detail() {
                 Call colour
                 <select
                   name="colour"
+                  aria-label="Call colour"
                   defaultValue={e.callColour || ""}
                   required
                 >
@@ -3321,7 +3324,7 @@ function Overview() {
             <h2>Needs attention</h2>
             <ListTodo size={20} />
           </div>
-          <Link className="manager-alert" to="/?queue=overdue">
+          <Link className="manager-alert" to="/today?queue=overdue">
             <span>{overdue.length}</span>
             <div>
               <strong>Overdue commitments</strong>

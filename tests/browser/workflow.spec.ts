@@ -108,11 +108,25 @@ test("responsive screens have no document overflow or runtime errors", async ({
     ]) {
       await page.goto(route);
       await expect(page.locator("h1")).toBeVisible();
+      const overflow = await page.evaluate(() =>
+        [...document.querySelectorAll("main *")]
+          .filter(
+            (element) => element.getBoundingClientRect().right > innerWidth + 1,
+          )
+          .map((element) => ({
+            tag: element.tagName,
+            class: element.className,
+            width: element.getBoundingClientRect().width,
+          }))
+          .slice(0, 8),
+      );
       await expect
-        .poll(() =>
-          page.evaluate(
-            () => document.documentElement.scrollWidth <= window.innerWidth,
-          ),
+        .poll(
+          () =>
+            page.evaluate(
+              () => document.documentElement.scrollWidth <= window.innerWidth,
+            ),
+          { message: `${width}px ${route}: ${JSON.stringify(overflow)}` },
         )
         .toBe(true);
       if (width === 1440 || width === 390)

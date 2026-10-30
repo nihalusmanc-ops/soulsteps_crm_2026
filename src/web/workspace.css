@@ -630,6 +630,11 @@ tbody tr:hover td {
   grid-template-columns: minmax(0, 1fr) 260px;
   gap: 20px;
 }
+.detail-grid > *,
+.detail-person > div,
+.timeline-item > div {
+  min-width: 0;
+}
 .detail-content {
   padding: 24px;
 }
@@ -1074,7 +1079,7 @@ a.manager-alert:hover {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .detail-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .detail-aside {
     display: grid;
@@ -1301,5 +1306,13 @@ a.manager-alert:hover {
 }
 
 /* Original Soulsteps artwork includes both lettering and swoosh. */
-.sidebar .brand { margin: 0 0 24px; }
-.brand-full-logo { display: block; width: 140px; max-width: 100%; height: auto; margin-inline: auto; }
+.sidebar .brand {
+  margin: 0 0 24px;
+}
+.brand-full-logo {
+  display: block;
+  width: 140px;
+  max-width: 100%;
+  height: auto;
+  margin-inline: auto;
+}

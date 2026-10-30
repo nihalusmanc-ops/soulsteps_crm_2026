@@ -71,7 +71,7 @@ test("reviewed synthetic import survives reload and commits once with raw histor
   const batchId = await saved.getByLabel("Review batch").inputValue();
   await page.reload();
   await page
-    .getByRole("button", { name: "Import preview", exact: true })
+    .getByRole("button", { name: "Import enquiries", exact: true })
     .click();
   await saved.getByLabel("Review batch").selectOption(batchId);
   await saved

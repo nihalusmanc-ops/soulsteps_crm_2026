@@ -212,7 +212,7 @@ test("rule publication previews changes, blocks stale data, preserves history an
   expect(
     preview.examples.find(
       (r: { group: string; visa: string }) =>
-        r.group === "couple" && r.visa === "some",
+        r.group === "couple" && r.visa === "unknown",
     ).rank,
   ).toBeNull();
   const key = crypto.randomUUID();
@@ -298,6 +298,9 @@ test("manager screens edit defaults and explicitly review a rule preview", async
   page,
   request,
 }) => {
+  const beforeRules = await (
+    await request.get("/api/management/trips/DEMO-NORWAY/rules")
+  ).json();
   await page.goto("/settings");
   await expect(
     page.getByRole("heading", { name: "Settings", exact: true }),
@@ -313,6 +316,9 @@ test("manager screens edit defaults and explicitly review a rule preview", async
     .getByRole("button", { name: "Save defaults", exact: true })
     .click();
   await expect(page.getByRole("dialog")).not.toBeVisible();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Saving workspace settings" }),
+  ).toHaveCount(0);
   await page.reload();
   await page
     .getByRole("button", { name: "Workspace settings", exact: true })
@@ -340,5 +346,5 @@ test("manager screens edit defaults and explicitly review a rule preview", async
   const data = await (
     await request.get("/api/management/trips/DEMO-NORWAY/rules")
   ).json();
-  expect(data.activeVersion).toBe(2);
+  expect(data.activeVersion).toBe((beforeRules.activeVersion || 0) + 1);
 });
