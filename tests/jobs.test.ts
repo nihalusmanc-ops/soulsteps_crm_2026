@@ -963,8 +963,8 @@ describe("reviewable settings and rules", () => {
     expect(
       rulesSchema.safeParse([...defaultRules, defaultRules[0]]).success,
     ).toBe(false);
-    expect(evaluateRules(defaultRules, "solo", "all").rank).toBe("P4");
-    expect(evaluateRules(defaultRules, "family", "all").rank).toBeNull();
+    expect(evaluateRules(defaultRules, "solo", "all").rank).toBe("P3");
+    expect(evaluateRules(defaultRules, "family", "all").rank).toBe("P4");
     expect(evaluateRules(defaultRules, "couple", "some").rank).toBeNull();
   });
 });

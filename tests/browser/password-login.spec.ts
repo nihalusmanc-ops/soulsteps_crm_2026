@@ -18,11 +18,11 @@ test("Soulsteps sign-in, rejected password, private navigation, sign-out and ses
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "Today", exact: true }),
+    page.getByRole("heading", { name: "Enquiries", exact: true }),
   ).toBeVisible();
   await page.reload();
   await expect(
-    page.getByRole("heading", { name: "Today", exact: true }),
+    page.getByRole("heading", { name: "Enquiries", exact: true }),
   ).toBeVisible();
   await page.locator(".profile-trigger").click();
   await page.getByRole("link", { name: "Account security" }).click();
@@ -54,7 +54,7 @@ test("Soulsteps sign-in, rejected password, private navigation, sign-out and ses
     .fill("New fictional browser password!");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "Today", exact: true }),
+    page.getByRole("heading", { name: "Enquiries", exact: true }),
   ).toBeVisible();
 });
 test("staff password session retains server-enforced role permissions", async ({

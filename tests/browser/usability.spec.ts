@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 test("dashboard summaries open the matching queue", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/today");
   await page.getByRole("link", { name: /Outstanding deposits/ }).click();
   await expect(page).toHaveURL(/queue=deposits/);
   await expect(page.getByRole("button", { name: /^Deposits/ })).toHaveAttribute(
@@ -18,7 +18,7 @@ test("dashboard summaries open the matching queue", async ({ page }) => {
 test("search and pipeline survive opening a record, returning and reloading", async ({
   page,
 }) => {
-  await page.goto("/enquiries");
+  await page.goto("/enquiries?view=pipeline");
   await page.getByLabel("Search enquiries").fill("Traveller H");
   await page.getByRole("button", { name: "Pipeline", exact: true }).click();
   await expect(page.locator(".pipeline-card")).toHaveCount(1);
@@ -75,7 +75,7 @@ test("mobile navigation traps focus, restores it, and provides readable record c
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Today", exact: true }),
+    page.getByRole("heading", { name: "Enquiries", exact: true }),
   ).toBeVisible();
   const menu = page.getByRole("button", { name: "Open navigation" });
   await menu.click();
@@ -93,7 +93,7 @@ test("mobile navigation traps focus, restores it, and provides readable record c
     .getByRole("link", { name: "Enquiries", exact: true })
     .click();
   await expect(page.getByRole("heading", { name: "Enquiries" })).toBeVisible();
-  await expect(page.locator(".enquiry-mobile-card").first()).toBeVisible();
+  await expect(page.locator(".call-row").first()).toBeVisible();
   await expect(page.locator(".enquiries-table")).toBeHidden();
   expect(
     await page.evaluate(

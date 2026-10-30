@@ -20,7 +20,9 @@ test("repeat customer selection preserves enquiry history", async ({
 }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "New enquiry", exact: true }).click();
-  await page.getByLabel("Customer record").selectOption("CUSTOMER-1");
+  await page.getByLabel("Search existing customers").fill("Demo Traveller A");
+  await page.getByRole("button", { name: /Demo Traveller A/ }).click();
+  await page.getByLabel("Trip", { exact: true }).selectOption("DEMO-NORWAY");
   await page
     .getByRole("button", { name: "Create enquiry", exact: true })
     .click();

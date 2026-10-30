@@ -318,10 +318,11 @@ test("manager screens edit defaults and explicitly review a rule preview", async
     .getByRole("button", { name: "Workspace settings", exact: true })
     .click();
   await expect(page.getByText("48 hours", { exact: true })).toBeVisible();
-  await page.goto("/trips");
+  await page.goto("/settings?section=priorities");
   await page
-    .getByRole("button", { name: "Preview fit rules", exact: true })
-    .first()
+    .locator(".setting-row")
+    .filter({ hasText: /Norway/ })
+    .getByRole("button", { name: "Edit priorities", exact: true })
     .click();
   await page
     .getByRole("button", { name: "Preview affected enquiries", exact: true })
