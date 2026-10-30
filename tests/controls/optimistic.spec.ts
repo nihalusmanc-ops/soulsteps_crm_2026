@@ -645,7 +645,7 @@ test("an interrupted payment response reconciles the saved record and retries wi
   expect(state.enquiries[0].payments).toHaveLength(1);
   expect(state.enquiries[0].payments[0].status).toBe("pending");
 });
-test("payment entry appears immediately as unverified, rolls back on failure and never enables confirmation", async ({
+test("payment entry updates funds immediately, rolls back on failure and enables confirmation only after saving", async ({
   page,
 }) => {
   const state = await setup(page);
@@ -695,10 +695,11 @@ test("payment entry appears immediately as unverified, rolls back on failure and
   const row = page
     .locator(".payment-row")
     .filter({ hasText: "IMMEDIATE-PAYMENT" });
-  await expect(row).toContainText("Unverified");
+  await expect(row).toContainText("Recorded");
+  await expect(row).toContainText("Recorded by Test manager");
   await expect(
     row.getByRole("button", { name: "Verify funds", exact: true }),
-  ).toBeDisabled();
+  ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Confirm booking", exact: true }),
   ).toBeDisabled();
@@ -714,13 +715,13 @@ test("payment entry appears immediately as unverified, rolls back on failure and
   await expect.poll(() => keys.length).toBe(2);
   expect(keys[1]).toBe(keys[0]);
   hold.release();
-  await expect(row).toContainText("Unverified");
+  await expect(row).toContainText("Recorded");
   await expect(
     row.getByRole("button", { name: "Verify funds", exact: true }),
-  ).toBeEnabled();
+  ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Confirm booking", exact: true }),
-  ).toBeDisabled();
+  ).toBeEnabled();
   expect(state.enquiries[0].payments).toHaveLength(1);
   expect(state.enquiries[0].payments[0].status).toBe("pending");
   await page.goto("/bookings");

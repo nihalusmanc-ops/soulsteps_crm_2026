@@ -84,7 +84,7 @@ import {
   dubaiDay,
   nextTask,
   isOpen,
-  verifiedTotal,
+  receivedTotal,
   confirmationBlock,
   classify,
   manualWhatsAppUrl,
@@ -1011,7 +1011,7 @@ function Today({ onCreate }: { onCreate: () => void }) {
     (e) =>
       e.quote?.accepted &&
       e.quote.deposit &&
-      verifiedTotal(e) < e.quote.deposit,
+      receivedTotal(e) < e.quote.deposit,
   );
   const departures = data.trips
     .filter(
@@ -1125,7 +1125,7 @@ function Today({ onCreate }: { onCreate: () => void }) {
           />
           {tab === "ready" && (
             <p className="queue-explanation">
-              Hot buying interest or a verified deposit. Review the enquiry
+              Hot buying interest or a recorded deposit. Review the enquiry
               before confirming.
             </p>
           )}
@@ -1148,7 +1148,7 @@ function Today({ onCreate }: { onCreate: () => void }) {
                   <div className="queue-action">
                     <strong>
                       {tab === "deposits"
-                        ? `Deposit: ${money(Math.max(0, (e.quote?.deposit || 0) - verifiedTotal(e)))} remaining`
+                        ? `Deposit: ${money(Math.max(0, (e.quote?.deposit || 0) - receivedTotal(e)))} remaining`
                         : t?.type ||
                           (e.quote && !confirmationBlock(e)
                             ? "Confirm booking"
@@ -1321,7 +1321,7 @@ function LegacyEnquiries({ onCreate }: { onCreate: () => void }) {
         (!clientStatus || e.workbook?.colour === clientStatus) &&
         (!paidSince ||
           e.payments.some(
-            (p) => p.status === "verified" && p.date >= paidSince,
+            (p) => p.status !== "reversed" && p.date >= paidSince,
           )) &&
         (!openOnly || isOpen(e)) &&
         (!tripFilter || e.tripId === tripFilter) &&
@@ -1835,7 +1835,7 @@ function Detail() {
   const [busy, setBusy] = useState(false);
   if (!e) return <Empty title="Enquiry not found" />;
   const trip = data.trips.find((t) => t.id === e.tripId);
-  const paid = verifiedTotal(e);
+  const paid = receivedTotal(e);
   const block = confirmationBlock(e);
   const pending = e.tasks
     .filter((t) => t.status === "pending")
@@ -1921,9 +1921,6 @@ function Detail() {
           reference: s("reference"),
         };
         break;
-      case "verify":
-        command = { type: "verify", paymentId };
-        break;
       case "reverse":
         command = { type: "reverse", paymentId, reason: s("reason") };
         break;
@@ -1972,8 +1969,7 @@ function Detail() {
     stage: "Change sales stage",
     qualify: "Edit details",
     payment: "Record payment",
-    verify: "Verify deposit funds",
-    reverse: "Reverse verified payment",
+    reverse: "Reverse payment",
     quote: "Record accepted quotation",
     confirm: "Confirm booking",
     override: "Override trip-fit rank",
@@ -2096,7 +2092,7 @@ function Detail() {
                 ? dateTime(next.due) + " · Dubai time"
                 : e.holdReason ||
                   (!block
-                    ? "Deposit verified. Staff confirmation required."
+                    ? "Deposit received. Staff confirmation required."
                     : "Agree the next step with this customer.")}
           </p>
         </div>
@@ -2332,14 +2328,14 @@ function Detail() {
                           foot="Accepted quotation"
                         />
                         <Stat
-                          label="Verified funds"
+                          label="Payments received"
                           value={money(paid)}
-                          foot="Pending records excluded"
+                          foot="Recorded payments"
                         />
                         <Stat
                           label="Outstanding balance"
                           value={money(e.quote.total - paid)}
-                          foot="Booking value less verified funds"
+                          foot="Booking value less payments received"
                         />
                       </div>
                       <div className="notice">
@@ -2373,34 +2369,21 @@ function Detail() {
                               {dateTime(p.date)} · {p.reference}
                             </small>
                             <small>
-                              {p.verifier
-                                ? `Verified by ${p.verifier}`
-                                : "Not verified against bank records"}
+                              {p.recordedBy
+                                ? `Recorded by ${p.recordedBy}`
+                                : "Payment recorded"}
                             </small>
                           </div>
                           <Badge
                             kind={
-                              p.status === "verified"
+                              p.status !== "reversed"
                                 ? "confirmed"
                                 : "qualification"
                             }
                           >
-                            {p.status === "pending" ? "Unverified" : p.status}
+                            {p.status === "reversed" ? "Reversed" : "Recorded"}
                           </Badge>
-                          {p.status === "pending" && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              disabled={writes.pending}
-                              onClick={() => {
-                                setPaymentId(p.id);
-                                setAction("verify");
-                              }}
-                            >
-                              Verify funds
-                            </Button>
-                          )}
-                          {p.status === "verified" && role === "manager" && (
+                          {p.status !== "reversed" && role === "manager" && (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -2418,7 +2401,7 @@ function Detail() {
                       {!e.payments.length && (
                         <Empty
                           title="No payments recorded"
-                          text="A payment record starts unverified. Verify against bank records separately."
+                          text="Add a payment with its amount, received date and reference."
                         />
                       )}
                       <div
@@ -2431,7 +2414,7 @@ function Detail() {
                               ? `Confirmed · ${e.booking.reference}`
                               : block
                                 ? "Not ready to confirm"
-                                : "Deposit verified · confirmation pending"}
+                                : "Deposit received · confirmation pending"}
                           </h3>
                           <p>
                             {e.booking
@@ -2563,11 +2546,9 @@ function Detail() {
         onClose={() => setAction("")}
         title={titles[action] || ""}
         description={
-          action === "verify"
-            ? "Verify funds against your bank record. Booking confirmation is a separate step."
-            : action === "confirm"
-              ? "Confirm the booking after verifying the required deposit. The balance remains outstanding."
-              : "Changes are saved in activity history. Times are Asia/Dubai."
+          action === "confirm"
+            ? "Confirm the booking after recording the required deposit."
+            : "Changes are saved in activity history. Times are Asia/Dubai."
         }
       >
         {(error || writes.error) && (
@@ -2859,9 +2840,6 @@ function Detail() {
                 Payment reference
                 <input name="reference" required />
               </label>
-              <div className="notice">
-                Payment will be recorded as unverified.
-              </div>
             </>
           )}
           {action === "quote" && (
@@ -2900,16 +2878,10 @@ function Detail() {
               </label>
             </>
           )}
-          {action === "verify" && (
-            <label className="checkbox">
-              <input type="checkbox" required />I checked this payment against
-              the bank record.
-            </label>
-          )}
           {action === "confirm" && (
             <>
               <div className="notice">
-                Booking value {money(e.quote?.total || 0)} · Verified{" "}
+                Booking value {money(e.quote?.total || 0)} · Received{" "}
                 {money(paid)} · Balance {money((e.quote?.total || 0) - paid)}
               </div>
               <label className="checkbox">
@@ -2953,15 +2925,13 @@ function Detail() {
             >
               {busy
                 ? "Saving…"
-                : action === "verify"
-                  ? "Verify funds"
-                  : action === "confirm"
-                    ? "Confirm booking"
-                    : action === "cancel"
-                      ? "Cancel task"
-                      : action === "reverse"
-                        ? "Reverse payment"
-                        : "Save"}
+                : action === "confirm"
+                  ? "Confirm booking"
+                  : action === "cancel"
+                    ? "Cancel task"
+                    : action === "reverse"
+                      ? "Reverse payment"
+                      : "Save"}
             </Button>
           </div>
         </form>
@@ -3050,7 +3020,7 @@ function Bookings() {
         (e.name + " " + e.booking!.reference)
           .toLowerCase()
           .includes(search.toLowerCase())) &&
-      (balance !== "due" || (e.quote?.total || 0) > verifiedTotal(e)),
+      (balance !== "due" || (e.quote?.total || 0) > receivedTotal(e)),
   );
   return (
     <>
@@ -3077,7 +3047,7 @@ function Bookings() {
           label="Outstanding balance · AED"
           value={money(
             bookings.reduce(
-              (s, e) => s + (e.quote?.total || 0) - verifiedTotal(e),
+              (s, e) => s + (e.quote?.total || 0) - receivedTotal(e),
               0,
             ),
           )}
@@ -3123,7 +3093,7 @@ function Bookings() {
                   <th>Trip</th>
                   <th>Confirmed</th>
                   <th>Booking value</th>
-                  <th>Verified paid</th>
+                  <th>Payments received</th>
                   <th>Balance</th>
                   <th />
                 </tr>
@@ -3155,12 +3125,12 @@ function Bookings() {
                       <small>{e.booking!.actor}</small>
                     </td>
                     <td data-label="Booking value">{money(e.quote!.total)}</td>
-                    <td data-label="Verified paid">
-                      {money(verifiedTotal(e))}
+                    <td data-label="Payments received">
+                      {money(receivedTotal(e))}
                     </td>
                     <td data-label="Balance">
                       <strong>
-                        {money(e.quote!.total - verifiedTotal(e))}
+                        {money(e.quote!.total - receivedTotal(e))}
                       </strong>
                       <small>Balance due date not agreed</small>
                     </td>
@@ -3187,7 +3157,7 @@ function Bookings() {
             text={
               bookings.length
                 ? "Try another customer name or balance filter."
-                : "Verify the deposit and explicitly confirm from an enquiry’s Payments tab."
+                : "Record the deposit and confirm from an enquiry’s Payments tab."
             }
           />
         )}
@@ -3223,7 +3193,7 @@ function Overview() {
   );
   const payments = data.enquiries.flatMap((e) =>
     e.payments.filter(
-      (p) => p.status === "verified" && Date.parse(p.date) >= start,
+      (p) => p.status !== "reversed" && Date.parse(p.date) >= start,
     ),
   );
   const open = data.enquiries.filter(isOpen);
@@ -3285,7 +3255,7 @@ function Overview() {
             "/enquiries?paidSince=" +
             encodeURIComponent(dateFilter || "1970-01-01T00:00:00.000Z")
           }
-          label="Verified cash received"
+          label="Payments received"
           value={money(payments.reduce((s, p) => s + p.amount, 0))}
           foot="AED · by payment received date"
         />

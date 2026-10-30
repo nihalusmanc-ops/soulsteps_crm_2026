@@ -3,6 +3,7 @@ import { DatabaseSync } from "node:sqlite";
 import { readdirSync, readFileSync } from "node:fs";
 import { Repository } from "../src/server/repository";
 import { seed } from "../src/shared/seed";
+import { receivedTotal } from "../src/shared/domain";
 import { Hono } from "hono";
 import { managementRoutes } from "../src/server/management";
 import type { AppEnv } from "../src/server/types";
@@ -100,6 +101,111 @@ beforeEach(() => {
   } as unknown as D1Database;
 });
 afterEach(() => sqlite.close());
+it("counts manual deposits immediately, persists the recorder, and confirms without verification", async () => {
+  const repo = new Repository(db, staff);
+  let e = await repo.enquiry("SHARED");
+  await repo.command(
+    e.id,
+    e.revision,
+    { type: "quote", total: 100000, deposit: 20000, terms: "Agreed terms" },
+    "manual-quote",
+    "quote",
+    "manual-1",
+  );
+  e = await repo.enquiry(e.id);
+  await repo.command(
+    e.id,
+    e.revision,
+    {
+      type: "payment",
+      amount: 10000,
+      date: new Date().toISOString(),
+      reference: "PART-1",
+    },
+    "manual-payment-1",
+    "payment-1",
+    "manual-2",
+  );
+  e = await repo.enquiry(e.id);
+  expect(receivedTotal(e)).toBe(10000);
+  expect(e.payments[0].recordedBy).toBe(staff.name);
+  expect(e.payments[0].verifiedAt).toBeUndefined();
+  await expect(
+    repo.command(
+      e.id,
+      e.revision,
+      { type: "confirm" },
+      "too-early",
+      "early",
+      "manual-3",
+    ),
+  ).rejects.toMatchObject({ code: "BUSINESS_RULE" });
+  const revision = e.revision;
+  const payment = {
+    type: "payment" as const,
+    amount: 10000,
+    date: new Date().toISOString(),
+    reference: "PART-2",
+  };
+  await repo.command(
+    e.id,
+    revision,
+    payment,
+    "manual-payment-2",
+    "payment-2",
+    "manual-4",
+  );
+  await repo.command(
+    e.id,
+    revision,
+    payment,
+    "manual-payment-2",
+    "payment-2",
+    "manual-5",
+  );
+  e = await repo.enquiry(e.id);
+  expect(e.payments).toHaveLength(2);
+  expect(receivedTotal(e)).toBe(20000);
+  expect(e.booking).toBeUndefined();
+  await expect(
+    repo.command(
+      e.id,
+      e.revision,
+      { type: "reverse", paymentId: e.payments[1].id, reason: "Correction" },
+      "staff-reverse",
+      "reverse",
+      "manual-6",
+    ),
+  ).rejects.toMatchObject({ status: 403 });
+  await repo.command(
+    e.id,
+    e.revision,
+    { type: "confirm" },
+    "manual-confirm",
+    "confirm",
+    "manual-7",
+  );
+  e = await repo.enquiry(e.id);
+  expect(e.booking?.actor).toBe(staff.name);
+  expect(e.stage).toBe("CONFIRMED");
+  const manager = new Repository(db, { ...staff, role: "manager" });
+  await manager.command(
+    e.id,
+    e.revision,
+    {
+      type: "reverse",
+      paymentId: e.payments[1].id,
+      reason: "Incorrect amount",
+    },
+    "manager-reverse",
+    "reverse",
+    "manual-8",
+  );
+  e = await repo.enquiry(e.id);
+  expect(receivedTotal(e)).toBe(10000);
+  expect(e.payments[1].reversalReason).toBe("Incorrect amount");
+  expect(sqlite.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
+});
 it("persists a shared initial call, replaces the note and schedules follow-up atomically with replay/conflict protection", async () => {
   const repo = new Repository(db, staff);
   const e = await repo.enquiry("SHARED");
@@ -156,16 +262,14 @@ it("persists a shared initial call, replaces the note and schedules follow-up at
 });
 it("creates qualified enquiries using only their selected trip's active rules", async () => {
   const trip = seed().trips[0];
-  sqlite
-    .prepare("UPDATE trips SET data=? WHERE id=?")
-    .run(
-      JSON.stringify({
-        ...trip,
-        activeRules: defaultRules,
-        activeRuleVersion: 2,
-      }),
-      trip.id,
-    );
+  sqlite.prepare("UPDATE trips SET data=? WHERE id=?").run(
+    JSON.stringify({
+      ...trip,
+      activeRules: defaultRules,
+      activeRuleVersion: 2,
+    }),
+    trip.id,
+  );
   const repo = new Repository(db, staff);
   const created = await repo.create(
     {

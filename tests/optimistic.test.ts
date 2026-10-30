@@ -90,7 +90,7 @@ it("never previews fund verification, reversals or booking confirmation", () => 
       ),
     ).toBeNull();
 });
-it("previews new payments as unverified without changing verified funds or bookings, and rolls them back", () => {
+it("previews received payments and balances without confirming a booking, and rolls them back", () => {
   const state = seed();
   state.enquiries[0] = applyCommand(
     state.enquiries[0],
@@ -114,8 +114,9 @@ it("previews new payments as unverified without changing verified funds or booki
   expect(preview.enquiries[0].payments.at(-1)).toMatchObject({
     reference: "TEST-REF",
     status: "pending",
+    recordedBy: actor.name,
   });
-  expect(verifiedTotal(preview.enquiries[0])).toBe(verifiedTotal(e));
+  expect(verifiedTotal(preview.enquiries[0])).toBe(verifiedTotal(e) + 20000);
   expect(preview.enquiries[0].booking).toEqual(e.booking);
   expect(rollbackWrite(preview, state, write)).toEqual(state);
 });
@@ -231,5 +232,5 @@ it("rejects stale projections and invalid confirmed-stage shortcuts", () => {
       },
       actor,
     ),
-  ).toThrow(/verified-deposit/);
+  ).toThrow(/booking confirmation flow/);
 });

@@ -12,7 +12,7 @@ Build one maintainable application with a background Worker where useful, not ma
 ## Business invariants
 - One customer can have multiple enquiries; a new message is not automatically a new enquiry.
 - Priority P1–P6, Hot/Warm/Cold, sales stage, response flag, payment status, and task status are independent.
-- Staff verifies funds and explicitly confirms booking. Receipt upload alone never verifies payment.
+- Staff manually records received funds once; all non-reversed payment entries count toward the deposit and balance. No separate funds-verification step is required. Booking confirmation remains explicit. Receipt upload alone never creates a payment.
 - Existing quotations retain offered amounts and terms after package edits.
 - Missing/mixed group visa information is not guessed; use Needs qualification / review.
 - Stop automated sends on opt-out, takeover, reply, closed/confirmed enquiry, or superseded task as applicable.

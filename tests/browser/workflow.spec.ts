@@ -36,15 +36,12 @@ test("daily flow, preserved history, financial confirmation and reload", async (
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Confirm booking", exact: true }),
-  ).toBeDisabled();
-  await page.getByRole("button", { name: "Verify funds", exact: true }).click();
-  await page.getByRole("checkbox").check();
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: "Verify funds", exact: true })
-    .click();
+  ).toBeEnabled();
   await expect(
-    page.getByText("Deposit verified · confirmation pending"),
+    page.getByRole("button", { name: "Verify funds", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("Deposit received · confirmation pending"),
   ).toBeVisible();
   await page
     .getByRole("button", { name: "Confirm booking", exact: true })

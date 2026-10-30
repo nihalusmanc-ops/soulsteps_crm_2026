@@ -40,6 +40,8 @@ export type Payment = {
   date: string;
   reference: string;
   status: "pending" | "verified" | "reversed";
+  recordedAt?: string;
+  recordedBy?: string;
   verifiedAt?: string;
   verifier?: string;
   reversalReason?: string;
@@ -188,10 +190,17 @@ export function classify(
       (visa === "all" ? "Yes" : "No"),
   };
 }
-export const verifiedTotal = (e: Enquiry) =>
+// Existing storage statuses are retained. Every saved manual payment counts;
+// a separate bank-verification action is no longer required.
+export const receivedTotal = (e: Enquiry) =>
   e.payments
-    .filter((p) => p.status === "verified" && p.currency === e.quote?.currency)
+    .filter(
+      (p) =>
+        p.status !== "reversed" && p.currency === (e.quote?.currency || "AED"),
+    )
     .reduce((s, p) => s + p.amount, 0);
+// Compatibility for historical callers; new screens use receivedTotal.
+export const verifiedTotal = receivedTotal;
 export function confirmationBlock(e: Enquiry): string | null {
   if (e.booking) return null;
   if (!e.quote?.accepted || e.quote.total <= 0)
@@ -200,11 +209,11 @@ export function confirmationBlock(e: Enquiry): string | null {
     return "A positive required deposit must be defined. Zero-deposit terms need policy review.";
   if (e.quote.deposit > e.quote.total)
     return "Deposit cannot exceed the booking amount.";
-  const paid = verifiedTotal(e);
+  const paid = receivedTotal(e);
   if (paid > e.quote.total)
     return "Overpayment requires review before confirmation.";
   if (paid < e.quote.deposit)
-    return `${money(e.quote.deposit - paid)} of the required deposit remains unverified.`;
+    return `${money(e.quote.deposit - paid)} of the required deposit remains unpaid.`;
   return null;
 }
 export const isOpen = (e: Enquiry) =>
@@ -445,7 +454,7 @@ export function applyCommand(
     }
     case "stage":
       if (cmd.stage === "CONFIRMED")
-        throw new Error("Use the verified-deposit confirmation flow.");
+        throw new Error("Use the deposit and booking confirmation flow.");
       if (e.booking)
         throw new Error(
           "Booking cancellation/reopening requires a policy review.",
@@ -505,10 +514,12 @@ export function applyCommand(
         date: dueDate(cmd.date),
         reference: cmd.reference,
         status: "pending",
+        recordedAt: now,
+        recordedBy: context.actor,
       });
       activity(
         "payment",
-        `${money(cmd.amount)} recorded, unverified. Reference: ${cmd.reference}`,
+        `${money(cmd.amount)} payment recorded. Reference: ${cmd.reference}`,
       );
       e.tasks
         .filter((t) => t.status === "pending")
@@ -529,8 +540,8 @@ export function applyCommand(
     }
     case "reverse": {
       const p = e.payments.find((p) => p.id === cmd.paymentId);
-      if (!p || p.status !== "verified")
-        throw new Error("Only verified payments can be reversed.");
+      if (!p || p.status === "reversed")
+        throw new Error("Only recorded payments can be reversed.");
       p.status = "reversed";
       p.reversalReason = cmd.reason;
       p.reversedBy = context.actor;

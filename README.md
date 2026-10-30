@@ -14,6 +14,9 @@ priorities, compact inline enquiry editing and optimistic updates with rollback.
 Meta intake and customer messaging automation remain disabled. The milestone
 summaries below describe earlier implementation checkpoints.
 
+Staff payment entry now counts received funds immediately, with no separate
+verification step. See [manual payments](docs/37_MANUAL_PAYMENTS.md).
+
 Source repository: https://github.com/nihalusmanc-ops/soulsteps_crm_2026.
 GitHub stores source and runs validation. The checked `main` deployment workflow
 is configured; commissioning and its enable switch are described in

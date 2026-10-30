@@ -44,32 +44,54 @@ describe("trip fit is independent of intent", () => {
 describe("financial invariants", () => {
   it("blocks partial deposit", () => {
     const e = seed().enquiries[4];
-    expect(confirmationBlock(e)).toContain("remains unverified");
+    expect(confirmationBlock(e)).toContain("remains unpaid");
     expect(() => applyCommand(e, { type: "confirm" })).toThrow();
   });
-  it("recording payment does not verify it", () => {
+  it("a manually recorded payment immediately counts toward the deposit", () => {
     const e = applyCommand(seed().enquiries[4], {
       type: "payment",
       amount: 200000,
       date: new Date().toISOString(),
       reference: "fictional",
     });
-    expect(verifiedTotal(e)).toBe(100000);
-    expect(() => applyCommand(e, { type: "confirm" })).toThrow();
+    expect(verifiedTotal(e)).toBe(300000);
+    expect(e.payments.at(-1)?.recordedBy).toBe("Demo staff");
+    expect(e.payments.at(-1)?.verifiedAt).toBeUndefined();
+    expect(confirmationBlock(e)).toBeNull();
+    expect(e.booking).toBeUndefined();
   });
-  it("verification requires separate explicit confirmation and retains balance", () => {
+  it("manual payment allows explicit booking confirmation and retains balance", () => {
     let e = applyCommand(seed().enquiries[4], {
       type: "payment",
       amount: 200000,
       date: new Date().toISOString(),
       reference: "fictional",
     });
-    e = applyCommand(e, { type: "verify", paymentId: e.payments[1].id });
     expect(e.booking).toBeUndefined();
     e = applyCommand(e, { type: "confirm" });
     expect(e.stage).toBe("CONFIRMED");
     expect(e.quote!.total - verifiedTotal(e)).toBe(900000);
     expect(applyCommand(e, { type: "confirm" })).toEqual(e);
+  });
+  it("counts existing payment records and supports audited reversal without a verification step", () => {
+    let e = seed().enquiries[4];
+    e.payments[0].status = "pending";
+    expect(verifiedTotal(e)).toBe(100000);
+    e = applyCommand(e, {
+      type: "reverse",
+      paymentId: e.payments[0].id,
+      reason: "Incorrect entry",
+    });
+    expect(verifiedTotal(e)).toBe(0);
+    expect(e.payments).toHaveLength(1);
+    expect(e.payments[0].reversalReason).toBe("Incorrect entry");
+    expect(() =>
+      applyCommand(e, {
+        type: "reverse",
+        paymentId: e.payments[0].id,
+        reason: "Again",
+      }),
+    ).toThrow();
   });
   it("rejects missing terms and zero deposit", () => {
     const e = seed().enquiries[11];

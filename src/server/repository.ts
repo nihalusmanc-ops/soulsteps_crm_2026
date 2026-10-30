@@ -165,7 +165,7 @@ export class Repository {
       throw new ApiError(
         403,
         "MANAGER_REQUIRED",
-        "Only a manager can reverse verified funds.",
+        "Only a manager can reverse recorded payments.",
       );
     if (command.type === "confirm" && before.booking)
       return { reference: before.booking.reference, revision: before.revision };

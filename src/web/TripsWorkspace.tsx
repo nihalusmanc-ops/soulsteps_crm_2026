@@ -19,7 +19,7 @@ import {
 import {
   money,
   isOpen,
-  verifiedTotal,
+  receivedTotal,
   type State,
   type Trip,
 } from "../shared/domain";
@@ -349,7 +349,7 @@ export function TripsWorkspace({
                                 <strong>{money(e.quote?.total || 0)}</strong>
                                 <small>
                                   {money(
-                                    (e.quote?.total || 0) - verifiedTotal(e),
+                                    (e.quote?.total || 0) - receivedTotal(e),
                                   )}{" "}
                                   outstanding
                                 </small>
@@ -377,7 +377,7 @@ export function TripsWorkspace({
                   >
                     <p>
                       {currentTab === "bookings"
-                        ? "Bookings appear after the deposit is verified and staff confirm the booking."
+                        ? "Bookings appear after the deposit is recorded and staff confirm the booking."
                         : "Enquiries linked to this trip will appear here."}
                     </p>
                   </EmptyState>

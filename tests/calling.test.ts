@@ -134,7 +134,7 @@ it("turns green on a recorded deposit while preserving the separate booking guar
   expect(leadColour(e)).toBe("green");
   expect(callingList(e)).toBe("closed");
   expect(e.booking).toBeUndefined();
-  expect(confirmationBlock(e)).toContain("unverified");
+  expect(confirmationBlock(e)).toBeNull();
 });
 it("optimistically moves a first call and restores it on failure", () => {
   const before = { version: 1 as const, trips: [], enquiries: [samples()[1]] };

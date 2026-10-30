@@ -21,8 +21,8 @@ export function FilesPanel({
     <div>
       <h2>Private receipts</h2>
       <p className="muted">
-        PDF, PNG or JPEG · up to 5 MB. Uploading a receipt does not verify
-        payment.
+        PDF, PNG or JPEG · up to 5 MB. Record the payment separately from its
+        receipt.
       </p>
       <form
         className="receipt-form"
@@ -66,7 +66,8 @@ export function FilesPanel({
             <option value="">Enquiry only</option>
             {enquiry.payments.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.reference} · {p.status}
+                {p.reference} ·{" "}
+                {p.status === "reversed" ? "Reversed" : "Recorded"}
               </option>
             ))}
           </select>
