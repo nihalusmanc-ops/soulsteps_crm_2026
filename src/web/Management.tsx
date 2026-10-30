@@ -4,13 +4,15 @@ import { useState } from "react";
 import { ImportPreview } from "./ImportPreview";
 import { MetaIntegration } from "./MetaIntegration";
 import { ReleaseReadiness } from "./ReleaseReadiness";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Button } from "./components/ui/button";
 import { Modal } from "./components/ui/modal";
 import { management, useWorkspace } from "./data/management";
+import { ApiRequestError } from "./data/api";
 import {
   stageCodes,
+  settingsSchema,
   type WorkspaceSettings,
   type Rule,
   type RulePreview,
@@ -25,6 +27,27 @@ export function Management({ embedded = false }: { embedded?: boolean }) {
     [release, setRelease] = useState(false);
   const cfg = useWorkspace(),
     client = useQueryClient();
+  const settingsSave = useMutation({
+    mutationKey: ["workspace-settings-save"],
+    mutationFn: management.saveSettings,
+    retry: false,
+    onMutate: async (input: WorkspaceSettings) => {
+      settingsSchema.parse(input);
+      await client.cancelQueries({ queryKey: ["settings"], exact: true });
+      const previous = client.getQueryData<WorkspaceSettings>(["settings"]);
+      client.setQueryData(["settings"], {
+        ...input,
+        version: input.version + 1,
+      });
+      setEdit(null);
+      return { previous };
+    },
+    onError: (_error, _input, context) => {
+      if (context?.previous)
+        client.setQueryData(["settings"], context.previous);
+    },
+    onSettled: () => client.invalidateQueries({ queryKey: ["settings"] }),
+  });
   const jobs = useQuery({
     queryKey: ["management-jobs"],
     queryFn: management.jobs,
@@ -39,6 +62,7 @@ export function Management({ embedded = false }: { embedded?: boolean }) {
   async function act(work: () => Promise<unknown>, text: string) {
     setBusy(true);
     setError("");
+    setMessage("");
     try {
       await work();
       await Promise.all([
@@ -81,6 +105,30 @@ export function Management({ embedded = false }: { embedded?: boolean }) {
       {error && (
         <p role="alert" className="error-banner">
           {error}
+          {settingsSave.isError &&
+            settingsSave.variables &&
+            (settingsSave.error instanceof TypeError ||
+              (settingsSave.error instanceof ApiRequestError &&
+                (settingsSave.error.status >= 500 ||
+                  settingsSave.error.status === 429))) && (
+              <Button
+                variant="ghost"
+                disabled={busy}
+                onClick={() =>
+                  act(
+                    () => settingsSave.mutateAsync(settingsSave.variables!),
+                    "Workspace settings saved.",
+                  )
+                }
+              >
+                Retry settings save
+              </Button>
+            )}
+        </p>
+      )}
+      {settingsSave.isPending && (
+        <p role="status" className="notice">
+          Saving workspace settings…
         </p>
       )}
       {message && (
@@ -375,6 +423,7 @@ export function Management({ embedded = false }: { embedded?: boolean }) {
                 <Button
                   size="sm"
                   variant="outline"
+                  disabled={busy}
                   onClick={() => setEdit(structuredClone(cfg.settings))}
                 >
                   Edit settings
@@ -493,8 +542,7 @@ export function Management({ embedded = false }: { embedded?: boolean }) {
             onSubmit={async (e) => {
               e.preventDefault();
               await act(async () => {
-                await management.saveSettings(edit);
-                setEdit(null);
+                await settingsSave.mutateAsync(edit);
               }, "Workspace settings saved.");
             }}
           >

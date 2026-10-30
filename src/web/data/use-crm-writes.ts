@@ -2,10 +2,10 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRef } from "react";
 import type { Identity } from "../../shared/api";
 import type { Command, State, Trip } from "../../shared/domain";
-import { apiRepository, ApiRequestError } from "./api";
+import { apiRepository, ApiRequestError, deleteRecord } from "./api";
 import { previewWrite, rollbackWrite, type CrmWrite } from "./optimistic";
 
-export function useCrmWrites(actor?: Identity) {
+export function useCrmWrites(actor?: Identity, blocked?: () => boolean) {
   const client = useQueryClient();
   const lock = useRef(false);
   const mutation = useMutation({
@@ -21,6 +21,8 @@ export function useCrmWrites(actor?: Identity) {
     }) => {
       if (write.kind === "command")
         await apiRepository.command(write.id, write.revision, write.command);
+      else if (write.kind === "delete")
+        await deleteRecord(write.resource, write.id, write.revision);
       else await apiRepository.saveTrip(write.trip);
     },
     onMutate: async ({ write, onPreview, actor, replay }) => {
@@ -47,6 +49,7 @@ export function useCrmWrites(actor?: Identity) {
     onSettled: async (_data, _error, { write, actor }) => {
       await Promise.all([
         client.invalidateQueries({ queryKey: ["crm", actor.id], exact: true }),
+        client.invalidateQueries({ queryKey: ["reports-access"] }),
         ...(client.isMutating({ mutationKey: ["reminder-seen"] })
           ? []
           : [client.invalidateQueries({ queryKey: ["reminders"] })]),
@@ -57,7 +60,7 @@ export function useCrmWrites(actor?: Identity) {
     },
   });
   async function save(write: CrmWrite, onPreview?: () => void, replay = false) {
-    if (lock.current || !actor) return false;
+    if (lock.current || blocked?.() || !actor) return false;
     lock.current = true;
     try {
       await mutation.mutateAsync({ write, onPreview, actor, replay });
@@ -76,7 +79,7 @@ export function useCrmWrites(actor?: Identity) {
   return {
     pending: mutation.isPending,
     succeeded: mutation.isSuccess && sameActor,
-    locked: () => lock.current,
+    locked: () => lock.current || !!blocked?.(),
     error: sameActor ? mutation.error : null,
     failedWrite:
       sameActor && mutation.error ? mutation.variables?.write : undefined,
@@ -94,5 +97,11 @@ export function useCrmWrites(actor?: Identity) {
     ) => save({ kind: "command", id, revision, command }, onPreview),
     saveTrip: (trip: Trip, onPreview?: () => void) =>
       save({ kind: "trip", trip }, onPreview),
+    remove: (
+      resource: "trip" | "enquiry",
+      id: string,
+      revision: number,
+      onPreview?: () => void,
+    ) => save({ kind: "delete", resource, id, revision }, onPreview),
   };
 }

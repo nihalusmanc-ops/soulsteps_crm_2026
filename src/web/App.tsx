@@ -75,12 +75,7 @@ import {
 } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Modal } from "./components/ui/modal";
-import {
-  apiRepository as repository,
-  session,
-  reports,
-  deleteRecord,
-} from "./data/api";
+import { apiRepository as repository, session, reports } from "./data/api";
 import { FilesPanel } from "./FilesPanel";
 import {
   stages,
@@ -119,7 +114,7 @@ function DeleteRecord({
   revision: number;
   blocked?: string;
 }) {
-  const { run, role, error, writes } = useCRM();
+  const { role, error, writes } = useCRM();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false),
     [pending, setPending] = useState(false);
@@ -152,14 +147,14 @@ function DeleteRecord({
               event.preventDefault();
               if (pending) return;
               setPending(true);
-              const success = await run(
-                () => deleteRecord(kind, id, revision),
-                `${kind === "trip" ? "Trip" : "Enquiry"} deleted`,
-              );
-              setPending(false);
-              if (success) {
+              const leave = () => {
                 setOpen(false);
                 navigate(kind === "trip" ? "/trips" : "/enquiries");
+              };
+              const success = await writes.remove(kind, id, revision, leave);
+              setPending(false);
+              if (success) {
+                leave();
               }
             }}
           >
@@ -296,14 +291,16 @@ export default function App() {
     retry: false,
   });
   const me = useQuery({ queryKey: ["me"], queryFn: session.me, retry: false });
-  const writes = useCrmWrites(me.data);
+  const actionLock = useRef(false);
+  const writes = useCrmWrites(me.data, () => actionLock.current);
   const [loginBusy, setLoginBusy] = useState(false),
     [loginError, setLoginError] = useState("");
+  const [actionPending, setActionPending] = useState(false);
   const query = useQuery({
     queryKey: ["crm", me.data?.id],
     queryFn: ({ signal }) => repository.read(signal),
-    refetchOnWindowFocus: !writes.pending,
-    refetchOnReconnect: !writes.pending,
+    refetchOnWindowFocus: !writes.pending && !actionPending,
+    refetchOnReconnect: !writes.pending && !actionPending,
     enabled: !!me.data,
   });
   const client = useQueryClient();
@@ -407,10 +404,12 @@ export default function App() {
     };
   }, [mobile]);
   async function run(work: () => Promise<unknown>, message = "Saved") {
-    if (writes.locked()) {
+    if (writes.locked() || actionLock.current) {
       setError("Please wait for the current save to finish.");
       return false;
     }
+    actionLock.current = true;
+    setActionPending(true);
     setError("");
     try {
       await work();
@@ -427,6 +426,9 @@ export default function App() {
       );
       await client.invalidateQueries({ queryKey: ["crm"] });
       return false;
+    } finally {
+      actionLock.current = false;
+      setActionPending(false);
     }
   }
   if (loginOptions.data?.method === "password" && (me.isError || !me.data)) {
@@ -602,7 +604,7 @@ export default function App() {
           </div>
         )}
         <main id="main-content" tabIndex={-1}>
-          {writes.pending && (
+          {(writes.pending || actionPending) && (
             <div role="status" className="notice">
               Saving changes…
             </div>
@@ -918,9 +920,17 @@ export default function App() {
                       />
                     </label>
                   </div>
-                  <Button type="submit" disabled={writes.pending}>
-                    Create enquiry
+                  <Button
+                    type="submit"
+                    disabled={writes.pending || actionPending}
+                  >
+                    {actionPending ? "Creating enquiry…" : "Create enquiry"}
                   </Button>
+                  {error && (
+                    <p role="alert" className="error-banner">
+                      {error}
+                    </p>
+                  )}
                 </form>
               </Modal>
             </Context.Provider>
@@ -2295,6 +2305,7 @@ function Detail() {
                     <Button
                       variant="outline"
                       size="sm"
+                      disabled={writes.pending}
                       onClick={() => setAction("note")}
                     >
                       <Plus size={15} />
@@ -2451,7 +2462,10 @@ function Detail() {
                     />
                   )}
                   {!e.quote && (
-                    <Button onClick={() => setAction("quote")}>
+                    <Button
+                      disabled={writes.pending}
+                      onClick={() => setAction("quote")}
+                    >
                       Record quotation
                     </Button>
                   )}
@@ -2473,6 +2487,7 @@ function Detail() {
                 <Button
                   variant="ghost"
                   size="sm"
+                  disabled={writes.pending}
                   onClick={() => setAction("note")}
                 >
                   Add note
@@ -2500,7 +2515,7 @@ function Detail() {
             <Button
               variant="outline"
               onClick={() => setAction("stage")}
-              disabled={!!e.booking}
+              disabled={!!e.booking || writes.pending}
             >
               Change stage
             </Button>
@@ -2513,6 +2528,7 @@ function Detail() {
             <Button
               variant="ghost"
               size="sm"
+              disabled={writes.pending}
               onClick={() => setAction("override")}
             >
               Override with reason
@@ -2529,6 +2545,7 @@ function Detail() {
             </label>
             <Button
               variant="outline"
+              disabled={writes.pending}
               onClick={() => {
                 setTaskId("");
                 setAction("task");
@@ -2908,7 +2925,7 @@ function Detail() {
           {action === "override" && (
             <label>
               Trip-fit rank
-              <select name="rank">
+              <select name="rank" aria-label="Trip-fit rank">
                 {["P1", "P2", "P3", "P4", "P5", "P6"].map((v) => (
                   <option key={v}>{v}</option>
                 ))}

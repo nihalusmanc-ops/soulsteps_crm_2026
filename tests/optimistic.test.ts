@@ -7,6 +7,7 @@ import {
 } from "../src/web/data/optimistic";
 import type { Command } from "../src/shared/domain";
 import { applyCommand, verifiedTotal } from "../src/shared/domain";
+import { defaultRules } from "../src/shared/management";
 const actor = {
   id: "STAFF",
   name: "Test staff",
@@ -40,10 +41,15 @@ it("previews a note immediately without modifying the saved snapshot or other en
   expect(restored.enquiries[0]).toEqual(e);
   expect(restored.enquiries[1].holdReason).toBe("Another record changed");
 });
-it("updates shared customer contact details but waits for authoritative trip-fit rules", () => {
+it("updates shared contacts and uses active reviewed trip-fit rules immediately", () => {
   const state = seed(),
     e = state.enquiries[0];
   state.enquiries[1].customerId = e.customerId;
+  e.stage = "QUALIFYING";
+  delete e.override;
+  const trip = state.trips.find((t) => t.id === e.tripId)!;
+  trip.activeRules = structuredClone(defaultRules);
+  trip.activeRuleVersion = 3;
   const write: CrmWrite = {
     kind: "command",
     id: e.id,
@@ -51,7 +57,7 @@ it("updates shared customer contact details but waits for authoritative trip-fit
     command: {
       type: "qualify",
       group: "family",
-      visa: "some",
+      visa: "all",
       temperature: "warm",
       availability: "pending",
       name: "Updated customer",
@@ -63,18 +69,17 @@ it("updates shared customer contact details but waits for authoritative trip-fit
     "Updated customer",
     "Updated customer",
   ]);
-  expect(preview.enquiries[0].rank).toBe(e.rank);
+  expect(preview.enquiries[0].rank).toBe("P4");
+  expect(preview.enquiries[0].rankRuleVersion).toBe(3);
   expect(rollbackWrite(preview, state, write)).toEqual(state);
 });
-it("never previews verification, booking, quotations or reviewed overrides", () => {
+it("never previews fund verification, reversals or booking confirmation", () => {
   const state = seed(),
     e = state.enquiries[0];
   const commands: Command[] = [
     { type: "verify", paymentId: "test" },
     { type: "reverse", paymentId: "test", reason: "test" },
     { type: "confirm" },
-    { type: "quote", total: 100, deposit: 50, terms: "test" },
-    { type: "override", rank: "P1", reason: "test" },
   ];
   for (const command of commands)
     expect(
@@ -114,20 +119,91 @@ it("previews new payments as unverified without changing verified funds or booki
   expect(preview.enquiries[0].booking).toEqual(e.booking);
   expect(rollbackWrite(preview, state, write)).toEqual(state);
 });
-it("previews trip content edits but keeps amount changes server-confirmed", () => {
+it("previews draft trip amounts and content without publishing or changing existing quotes", () => {
   const state = seed(),
     trip = { ...state.trips[0], name: "Updated journey" };
   const write: CrmWrite = { kind: "trip", trip };
   const preview = previewWrite(state, write, actor)!;
   expect(preview.trips[0].name).toBe("Updated journey");
   expect(rollbackWrite(preview, state, write)).toEqual(state);
-  expect(
+  const amounts = previewWrite(
+    state,
+    { kind: "trip", trip: { ...trip, price: 100000, deposit: 20000 } },
+    actor,
+  )!;
+  expect(amounts.trips[0]).toMatchObject({
+    price: 100000,
+    deposit: 20000,
+    status: "draft",
+  });
+  expect(amounts.enquiries).toEqual(state.enquiries);
+  expect(rollbackWrite(amounts, state, write)).toEqual(state);
+});
+it("previews quotations and manual priorities and restores them on failure", () => {
+  const state = seed(),
+    e = state.enquiries.find((e) => !e.quote)!;
+  for (const command of [
+    { type: "quote", total: 100000, deposit: 20000, terms: "Agreed terms" },
+    { type: "override", rank: "P1", reason: "Reviewed by staff" },
+  ] satisfies Command[]) {
+    const write: CrmWrite = {
+      kind: "command",
+      id: e.id,
+      revision: e.revision,
+      command,
+    };
+    const preview = previewWrite(state, write, actor)!;
+    const changed = preview.enquiries.find((value) => value.id === e.id)!;
+    if (command.type === "quote")
+      expect(changed.quote?.terms).toBe("Agreed terms");
+    else expect(changed.override?.rank).toBe("P1");
+    expect(rollbackWrite(preview, state, write)).toEqual(state);
+  }
+});
+it("removes confirmed deletions immediately, restoring only the affected record on failure", () => {
+  const state = seed(),
+    e = state.enquiries[0];
+  e.payments = [];
+  delete e.booking;
+  const manager = { ...actor, role: "manager" as const };
+  const write: CrmWrite = {
+    kind: "delete",
+    resource: "enquiry",
+    id: e.id,
+    revision: e.revision,
+  };
+  const preview = previewWrite(state, write, manager)!;
+  expect(preview.enquiries.some((value) => value.id === e.id)).toBe(false);
+  expect(rollbackWrite(preview, state, write)).toEqual(state);
+  preview.enquiries[0] = {
+    ...preview.enquiries[0],
+    currentNote: "Unrelated update",
+  };
+  expect(rollbackWrite(preview, state, write).enquiries[1].currentNote).toBe(
+    "Unrelated update",
+  );
+  expect(() => previewWrite(state, write, actor)).toThrow(/manager/);
+  e.payments = [
+    {
+      id: "P",
+      amount: 10,
+      currency: "AED",
+      date: new Date().toISOString(),
+      reference: "Test",
+      status: "pending",
+    },
+  ];
+  expect(() => previewWrite(state, write, manager)).toThrow(
+    /financial history/,
+  );
+  const trip = state.trips.find((t) => t.id === e.tripId)!;
+  expect(() =>
     previewWrite(
       state,
-      { kind: "trip", trip: { ...trip, price: 1000 } },
-      actor,
+      { kind: "delete", resource: "trip", id: trip.id, revision: trip.version },
+      manager,
     ),
-  ).toBeNull();
+  ).toThrow(/linked enquiries/);
 });
 it("rejects stale projections and invalid confirmed-stage shortcuts", () => {
   const state = seed(),

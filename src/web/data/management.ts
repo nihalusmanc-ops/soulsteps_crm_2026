@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useIsMutating, useQuery } from "@tanstack/react-query";
 import { request, mutate } from "./api";
 import type { CreateTripInput } from "../../shared/api";
 import {
@@ -74,10 +74,14 @@ export const management = {
     mutate(`/management/trips/${id}/publish`, { version, manualOnly: true }),
 };
 export function useWorkspace() {
+  const saving =
+    useIsMutating({ mutationKey: ["workspace-settings-save"] }) > 0;
   const query = useQuery({
     queryKey: ["settings"],
     queryFn: management.settings,
     staleTime: 30000,
+    refetchOnWindowFocus: !saving,
+    refetchOnReconnect: !saving,
   });
   return { ...query, settings: query.data || defaultSettings };
 }

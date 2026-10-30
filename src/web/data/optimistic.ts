@@ -5,10 +5,18 @@ import {
   type Trip,
 } from "../../shared/domain";
 import type { Identity } from "../../shared/api";
+import { tripSchema } from "../../shared/api";
+import { eligibleForRecompute, evaluateRules } from "../../shared/management";
 
 export type CrmWrite =
   | { kind: "command"; id: string; revision: number; command: Command }
-  | { kind: "trip"; trip: Trip };
+  | { kind: "trip"; trip: Trip }
+  | {
+      kind: "delete";
+      resource: "trip" | "enquiry";
+      id: string;
+      revision: number;
+    };
 export function canPreview(command: Command) {
   return [
     "note",
@@ -19,6 +27,8 @@ export function canPreview(command: Command) {
     "qualify",
     "payment",
     "saveCall",
+    "quote",
+    "override",
   ].includes(command.type);
 }
 export function previewWrite(
@@ -26,16 +36,33 @@ export function previewWrite(
   write: CrmWrite,
   actor: Identity,
 ): State | null {
+  if (write.kind === "delete") {
+    if (actor.role !== "manager")
+      throw new Error("Only a manager can delete records.");
+    if (write.resource === "trip") {
+      const trip = state.trips.find((t) => t.id === write.id);
+      if (!trip || trip.version !== write.revision)
+        throw new Error("Trip changed. Refresh before deleting.");
+      if (state.enquiries.some((e) => e.tripId === trip.id))
+        throw new Error("Remove linked enquiries before deleting this trip.");
+      return { ...state, trips: state.trips.filter((t) => t.id !== write.id) };
+    }
+    const enquiry = state.enquiries.find((e) => e.id === write.id);
+    if (!enquiry || enquiry.revision !== write.revision)
+      throw new Error("This enquiry changed. Reload before deleting.");
+    if (!enquiry.sample && (enquiry.booking || enquiry.payments.length))
+      throw new Error("Enquiries with financial history cannot be deleted.");
+    return {
+      ...state,
+      enquiries: state.enquiries.filter((e) => e.id !== write.id),
+    };
+  }
   if (write.kind === "trip") {
     const current = state.trips.find((t) => t.id === write.trip.id);
     if (!current || current.version !== write.trip.version)
       throw new Error("Trip changed. Refresh before saving.");
-    // Amounts and publication changes always wait for the server.
-    if (
-      current.price !== write.trip.price ||
-      current.deposit !== write.trip.deposit
-    )
-      return null;
+    // Editing amounts changes the draft only; publication stays server-confirmed.
+    tripSchema.parse(write.trip);
     return {
       ...state,
       trips: state.trips.map((t) =>
@@ -55,9 +82,22 @@ export function previewWrite(
     demo: actor.local,
   });
   if (write.command.type === "qualify") {
-    // Reviewed rules and rank recomputation are authoritative on the server.
-    next.rank = current.rank;
-    next.rankReason = current.rankReason;
+    if (!eligibleForRecompute(current)) {
+      next.rank = current.rank;
+      next.rankReason = current.rankReason;
+      next.rankRuleVersion = current.rankRuleVersion;
+      next.rankComputedAt = current.rankComputedAt;
+    } else if (trip?.activeRules) {
+      const fit = evaluateRules(trip.activeRules, next.group, next.visa);
+      next.rank = fit.rank;
+      next.rankReason = fit.reason;
+      next.rankRuleVersion = trip.activeRuleVersion;
+      next.rankComputedAt = new Date().toISOString();
+    } else if (!actor.local) {
+      next.rank = null;
+      next.rankReason =
+        "Needs qualification: no reviewed rule version is active.";
+    }
   }
   return {
     ...state,
@@ -74,6 +114,31 @@ export function rollbackWrite(
   previous: State,
   write: CrmWrite,
 ): State {
+  if (write.kind === "delete") {
+    // Restore just the removed record, preserving unrelated cache changes and order.
+    const restore = <T extends { id: string }>(items: T[], originals: T[]) => {
+      if (items.some((item) => item.id === write.id)) return items;
+      const index = originals.findIndex((item) => item.id === write.id);
+      if (index < 0) return items;
+      const nextId = originals
+        .slice(index + 1)
+        .find((item) => items.some((value) => value.id === item.id))?.id;
+      const insertion = nextId
+        ? items.findIndex((item) => item.id === nextId)
+        : items.length;
+      return [
+        ...items.slice(0, insertion),
+        originals[index],
+        ...items.slice(insertion),
+      ];
+    };
+    return write.resource === "trip"
+      ? { ...current, trips: restore(current.trips, previous.trips) }
+      : {
+          ...current,
+          enquiries: restore(current.enquiries, previous.enquiries),
+        };
+  }
   if (write.kind === "trip")
     return {
       ...current,
