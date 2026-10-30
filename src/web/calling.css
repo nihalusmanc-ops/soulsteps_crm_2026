@@ -220,6 +220,32 @@
   font-weight: 600;
   line-height: 1.5;
 }
+.call-priority-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.call-priority-edit.priority-missing {
+  padding: 3px 0;
+  background: transparent;
+  border: 0;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+.call-priority-edit:hover {
+  text-decoration: underline;
+}
+.call-priority-edit:focus-visible {
+  outline: 2px solid var(--row-accent);
+  outline-offset: 3px;
+}
+.call-priority-edit:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
 .call-trip {
   font-size: 12px;
   overflow-wrap: anywhere;

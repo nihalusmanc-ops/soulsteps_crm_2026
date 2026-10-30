@@ -1,4 +1,4 @@
-import { useState, type MouseEvent } from "react";
+import { useRef, useState, type MouseEvent } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { Plus, Search, Phone, ChevronDown } from "lucide-react";
 import {
@@ -232,6 +232,7 @@ function CallRow({
   writes: Writes;
 }) {
   const location = useLocation();
+  const qualificationRef = useRef<HTMLDetailsElement>(null);
   const savedColour = leadColour(e);
   const [colour, setColour] = useState<CallColour | "">(e.callColour || "");
   const [note, setNote] = useState(currentNote(e));
@@ -335,11 +336,11 @@ function CallRow({
                     : "Not set"}
               </span>
             </div>
-            <details>
+            <details ref={qualificationRef}>
               <summary>
                 Edit details <ChevronDown size={12} />
               </summary>
-              <div className="call-qualification">
+              <div className="call-qualification" id={`qualification-${e.id}`}>
                 <label>
                   Group
                   <select
@@ -406,9 +407,21 @@ function CallRow({
           </div>
         </div>
         <div className="call-priority">
-          <span className={e.rank ? "priority-number" : "priority-missing"}>
+          <button
+            type="button"
+            className={`call-priority-edit ${e.rank ? "priority-number" : "priority-missing"}`}
+            aria-label={`Set priority for ${e.name}`}
+            aria-controls={`qualification-${e.id}`}
+            disabled={locked}
+            onClick={() => {
+              if (!qualificationRef.current) return;
+              qualificationRef.current.open = true;
+              qualificationRef.current.querySelector("select")?.focus();
+            }}
+          >
             {e.rank || "Needs qualification"}
-          </span>
+            <ChevronDown size={12} aria-hidden="true" />
+          </button>
           <div className="call-trip">{tripName}</div>
           <small className="call-progress">
             {initialCallDone(e) ? "Initial call done" : "Not called"}

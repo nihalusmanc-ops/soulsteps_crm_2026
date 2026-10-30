@@ -148,7 +148,11 @@ test("qualification and standalone note/date updates work without logging calls"
   const { state, commands } = await setup(page);
   await page.goto("/");
   const row = page.getByRole("article", { name: /Amina Noor/ });
-  await row.getByText("Edit details", { exact: true }).click();
+  await row
+    .getByRole("button", { name: "Set priority for Amina Noor", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(row.getByLabel("Group for Amina Noor")).toBeFocused();
   await row.getByLabel("Group for Amina Noor").selectOption("friends");
   await row.getByLabel("Schengen for Amina Noor").selectOption("all");
   await row.getByLabel("Travellers for Amina Noor").fill("4");
