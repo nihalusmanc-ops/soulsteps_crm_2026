@@ -158,6 +158,16 @@ test("qualification and standalone note/date updates work without logging calls"
   await row.getByLabel("Travellers for Amina Noor").fill("4");
   await row.getByRole("button", { name: "Save details", exact: true }).click();
   await expect(row.locator(".priority-number")).toHaveText("P4");
+  const priority = row.getByRole("button", {
+    name: "Set priority for Amina Noor",
+    exact: true,
+  });
+  await priority.click();
+  await expect(priority).toHaveAttribute("aria-expanded", "true");
+  await expect(row.getByLabel("Group for Amina Noor")).toBeVisible();
+  await priority.click();
+  await expect(priority).toHaveAttribute("aria-expanded", "false");
+  await expect(row.getByLabel("Group for Amina Noor")).not.toBeVisible();
   await row
     .getByLabel("Note for Amina Noor")
     .fill("Waiting for the first call.");

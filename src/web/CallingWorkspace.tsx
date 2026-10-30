@@ -233,6 +233,7 @@ function CallRow({
 }) {
   const location = useLocation();
   const qualificationRef = useRef<HTMLDetailsElement>(null);
+  const [qualificationOpen, setQualificationOpen] = useState(false);
   const savedColour = leadColour(e);
   const [colour, setColour] = useState<CallColour | "">(e.callColour || "");
   const [note, setNote] = useState(currentNote(e));
@@ -336,7 +337,10 @@ function CallRow({
                     : "Not set"}
               </span>
             </div>
-            <details ref={qualificationRef}>
+            <details
+              ref={qualificationRef}
+              onToggle={(ev) => setQualificationOpen(ev.currentTarget.open)}
+            >
               <summary>
                 Edit details <ChevronDown size={12} />
               </summary>
@@ -412,11 +416,14 @@ function CallRow({
             className={`call-priority-edit ${e.rank ? "priority-number" : "priority-missing"}`}
             aria-label={`Set priority for ${e.name}`}
             aria-controls={`qualification-${e.id}`}
+            aria-expanded={qualificationOpen}
             disabled={locked}
             onClick={() => {
               if (!qualificationRef.current) return;
-              qualificationRef.current.open = true;
-              qualificationRef.current.querySelector("select")?.focus();
+              const details = qualificationRef.current;
+              details.open = !details.open;
+              setQualificationOpen(details.open);
+              if (details.open) details.querySelector("select")?.focus();
             }}
           >
             {e.rank || "Needs qualification"}
