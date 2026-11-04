@@ -121,9 +121,10 @@ test("routine edits render before the response, roll back on failure, and retry 
   const dialog = await addNote(page, "Optimistic note");
   await expect(dialog).not.toBeVisible();
   await expect(page.locator(".timeline")).toContainText("Optimistic note");
-  await expect(
-    page.getByRole("status").filter({ hasText: "Saving changes" }),
-  ).toBeVisible();
+  await expect(page.locator("#main-content")).toHaveAttribute(
+    "aria-busy",
+    "true",
+  );
   expect(state.enquiries[0].activities).toHaveLength(0);
   hold.release();
   await expect(page.getByRole("alert")).toContainText("Temporary save failure");
@@ -208,9 +209,10 @@ test("trip content and accepted quotations render before the save response", asy
     page.getByText("AED 1,000.00", { exact: true }).first(),
   ).toBeVisible();
   hold.release();
-  await expect(
-    page.getByRole("status").filter({ hasText: "Saving changes" }),
-  ).toHaveCount(0);
+  await expect(page.locator("#main-content")).toHaveAttribute(
+    "aria-busy",
+    "false",
+  );
   hold = gate();
   await page.route("**/api/enquiries/LEAD/commands", async (route) => {
     const body = route.request().postDataJSON();
@@ -262,21 +264,17 @@ test("inline qualification moves the priority immediately and rolls back a rejec
   });
   await page.goto("/");
   const row = page.getByRole("article", { name: /Test traveller/ });
-  await row
-    .getByRole("button", { name: "Set priority for Test traveller" })
-    .click();
+  await row.getByText("Edit details", { exact: true }).click();
   await row.getByLabel("Group for Test traveller").selectOption("family");
   await row.getByLabel("Schengen for Test traveller").selectOption("all");
   await row.getByRole("button", { name: "Save details", exact: true }).click();
-  await expect(row.locator(".priority-number")).toHaveText("P4");
+  await expect(row.locator(".priority-number")).toHaveValue("P4");
   expect(state.enquiries[0].rank).toBeNull();
   hold.release();
   await expect(page.getByRole("alert").first()).toContainText(
     "This enquiry changed.",
   );
-  await expect(row.locator(".priority-missing")).toHaveText(
-    "Needs qualification",
-  );
+  await expect(row.locator(".priority-number")).toHaveValue("");
 });
 
 test("quotations and manual priority changes roll back with the original input available for retry", async ({
@@ -335,9 +333,10 @@ test("quotations and manual priority changes roll back with the original input a
     page.getByText("Reviewed quotation terms", { exact: true }),
   ).toBeVisible();
   expect(keys[1]).toBe(keys[0]);
-  await expect(
-    page.getByRole("status").filter({ hasText: "Saving changes" }),
-  ).toHaveCount(0);
+  await expect(page.locator("#main-content")).toHaveAttribute(
+    "aria-busy",
+    "false",
+  );
   hold = gate();
   fail = true;
   await page

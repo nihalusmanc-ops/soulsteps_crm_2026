@@ -1,6 +1,6 @@
 import { useRef, useState, type MouseEvent } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
-import { Plus, Search, Phone, ChevronDown } from "lucide-react";
+import { Plus, Search, Phone, ChevronDown, Save } from "lucide-react";
 import {
   callColours,
   leadColour,
@@ -40,12 +40,19 @@ export function CallingWorkspace({
   const [colour, setColour] = useViewParam("colour", "");
   const [dueOnly, setDueOnly] = useViewParam("due", "");
   const [rank, setRank] = useViewParam("fit", "");
+  const [period, setPeriod] = useViewParam("period", "");
+  const [sort, setSort] = useViewParam("sort", "");
+  const [direction, setDirection] = useViewParam("direction", "asc");
+  const cutoff = period ? Date.now() - Number(period) * 86400000 : 0;
   const active = ["new", "followups", "all"].includes(tab) ? tab : "new";
-  const rows = data.enquiries
+  const sortedRows = data.enquiries
     .filter(
       (e) =>
         (active === "all" || callingList(e) === active) &&
         (!trip || e.tripId === trip) &&
+        (!period ||
+          (Date.parse(e.createdAt) >= cutoff &&
+            Date.parse(e.createdAt) <= Date.now())) &&
         (!colour || leadColour(e) === colour) &&
         (!rank || (e.rank || "needs") === rank) &&
         (!dueOnly ||
@@ -55,7 +62,60 @@ export function CallingWorkspace({
           .toLowerCase()
           .includes(search.toLowerCase()),
     )
-    .sort((a, b) => compareCalling(a, b, active !== "new"));
+    .sort((a, b) => {
+      const value = (e: Enquiry) =>
+        sort === "customer"
+          ? e.name
+          : sort === "priority"
+            ? e.rank || "P7"
+            : sort === "colour"
+              ? leadColour(e)
+              : sort === "note"
+                ? currentNote(e)
+                : nextTask(e)?.due || "z";
+      return sort
+        ? value(a).localeCompare(value(b), undefined, {
+            numeric: true,
+            sensitivity: "base",
+          }) * (direction === "desc" ? -1 : 1) || a.id.localeCompare(b.id)
+        : compareCalling(a, b, active !== "new");
+    });
+  // Preserve the visible order during background saves; filters and heading
+  // clicks start a fresh ordering so staff never lose the row they are editing.
+  const order = useRef<{ key: string; ids: string[] }>({ key: "", ids: [] });
+  const orderKey = JSON.stringify([
+    active,
+    search,
+    trip,
+    colour,
+    dueOnly,
+    rank,
+    period,
+    sort,
+    direction,
+  ]);
+  if (order.current.key !== orderKey)
+    order.current = { key: orderKey, ids: sortedRows.map((e) => e.id) };
+  const positions = new Map(order.current.ids.map((id, index) => [id, index]));
+  for (const e of sortedRows)
+    if (!positions.has(e.id)) {
+      positions.set(e.id, order.current.ids.length);
+      order.current.ids.push(e.id);
+    }
+  const rows = sortedRows.sort(
+    (a, b) => positions.get(a.id)! - positions.get(b.id)!,
+  );
+  function toggleSort(column: string) {
+    setParams((previous) => {
+      const next = new URLSearchParams(previous);
+      next.set("sort", column);
+      next.set(
+        "direction",
+        sort === column && direction === "asc" ? "desc" : "asc",
+      );
+      return next;
+    });
+  }
   const count = (list: string) =>
     data.enquiries.filter((e) => callingList(e) === list).length;
   return (
@@ -123,7 +183,7 @@ export function CallingWorkspace({
             </option>
           ))}
         </select>
-        {active === "new" ? (
+        {
           <select
             aria-label="Filter priority"
             value={rank}
@@ -135,7 +195,8 @@ export function CallingWorkspace({
               <option key={n}>P{n}</option>
             ))}
           </select>
-        ) : (
+        }
+        {
           <select
             aria-label="Filter colour"
             value={colour}
@@ -150,7 +211,29 @@ export function CallingWorkspace({
             <option value="green">Converted · deposit added</option>
             <option value="none">No colour</option>
           </select>
-        )}
+        }
+        <select
+          aria-label="Filter received date"
+          value={period}
+          onChange={(e) => setPeriod(e.target.value)}
+        >
+          <option value="">Received: all time</option>
+          <option value="3">Last 3 days</option>
+          <option value="7">Last 7 days</option>
+          <option value="30">Last 30 days</option>
+        </select>
+        <select
+          className="calling-mobile-sort"
+          aria-label="Sort enquiries"
+          value={sort}
+          onChange={(e) => setSort(e.target.value)}
+        >
+          <option value="">Default order</option>
+          <option value="customer">Customer</option>
+          <option value="priority">Priority</option>
+          <option value="colour">Call colour</option>
+          <option value="followup">Follow-up</option>
+        </select>
         {active === "followups" && (
           <label className="checkbox">
             <input
@@ -161,7 +244,7 @@ export function CallingWorkspace({
             Due & overdue only
           </label>
         )}
-        {(search || trip || colour || dueOnly || rank) && (
+        {(search || trip || colour || dueOnly || rank || period) && (
           <Button
             variant="ghost"
             onClick={() => setParams({ list: active }, { replace: true })}
@@ -171,16 +254,27 @@ export function CallingWorkspace({
         )}
       </div>
       <div className="calling-list" aria-label="Enquiries calling list">
-        <div className="calling-columns" aria-hidden="true">
-          <span>Customer / details</span>
-          <span>Priority / trip</span>
-          <span>Call colour</span>
-          <span>Note</span>
-          <span>Follow-up / save</span>
+        <div className="calling-columns">
+          {[
+            ["customer", "Customer / details"],
+            ["priority", "Priority / trip"],
+            ["colour", "Call colour"],
+            ["note", "Note"],
+            ["followup", "Follow-up / save"],
+          ].map(([id, label]) => (
+            <button
+              type="button"
+              key={id}
+              onClick={() => toggleSort(id)}
+              aria-label={`Sort by ${label}`}
+            >
+              {label} {sort === id ? (direction === "asc" ? "↑" : "↓") : "↕"}
+            </button>
+          ))}
         </div>
         {rows.map((e) => (
           <CallRow
-            key={`${e.id}:${e.revision}`}
+            key={e.id}
             enquiry={e}
             tripName={
               data.trips.find((t) => t.id === e.tripId)?.name || "Trip not set"
@@ -196,7 +290,7 @@ export function CallingWorkspace({
                 : "No enquiries in this list"}
             </h2>
             <p className="muted">
-              {search || trip || colour || dueOnly || rank
+              {search || trip || colour || dueOnly || rank || period
                 ? "Try changing the filters."
                 : active === "new"
                   ? "You can continue with your follow-ups."
@@ -232,10 +326,8 @@ function CallRow({
   writes: Writes;
 }) {
   const location = useLocation();
-  const qualificationRef = useRef<HTMLDetailsElement>(null);
-  const [qualificationOpen, setQualificationOpen] = useState(false);
   const savedColour = leadColour(e);
-  const [colour, setColour] = useState<CallColour | "">(e.callColour || "");
+  const colour = e.callColour || "";
   const [note, setNote] = useState(currentNote(e));
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -282,7 +374,7 @@ function CallRow({
   };
   return (
     <article
-      className={`call-row call-${savedColour}`}
+      className={`call-row call-${savedColour}${busy || writes.pending ? " call-saving" : ""}`}
       aria-label={`${e.name} · ${converted ? "Converted" : e.callColour ? callColours[e.callColour] : "Not called"}`}
       onClick={openRow}
     >
@@ -337,10 +429,7 @@ function CallRow({
                     : "Not set"}
               </span>
             </div>
-            <details
-              ref={qualificationRef}
-              onToggle={(ev) => setQualificationOpen(ev.currentTarget.open)}
-            >
+            <details>
               <summary>
                 Edit details <ChevronDown size={12} />
               </summary>
@@ -411,24 +500,29 @@ function CallRow({
           </div>
         </div>
         <div className="call-priority">
-          <button
-            type="button"
-            className={`call-priority-edit ${e.rank ? "priority-number" : "priority-missing"}`}
+          <select
+            className="priority-number"
             aria-label={`Set priority for ${e.name}`}
-            aria-controls={`qualification-${e.id}`}
-            aria-expanded={qualificationOpen}
+            value={e.rank || ""}
             disabled={locked}
-            onClick={() => {
-              if (!qualificationRef.current) return;
-              const details = qualificationRef.current;
-              details.open = !details.open;
-              setQualificationOpen(details.open);
-              if (details.open) details.querySelector("select")?.focus();
-            }}
+            title={e.rank ? e.rankReason : "Needs qualification (NQ)"}
+            onChange={(ev) =>
+              void save({
+                type: "override",
+                rank: ev.target.value as NonNullable<Enquiry["rank"]>,
+                reason: "Staff selected priority from the calling list.",
+              })
+            }
           >
-            {e.rank || "Needs qualification"}
-            <ChevronDown size={12} aria-hidden="true" />
-          </button>
+            <option value="" disabled>
+              NQ
+            </option>
+            {[1, 2, 3, 4, 5, 6].map((n) => (
+              <option key={n} value={`P${n}`}>
+                P{n}
+              </option>
+            ))}
+          </select>
           <div className="call-trip">{tripName}</div>
           <small className="call-progress">
             {initialCallDone(e) ? "Initial call done" : "Not called"}
@@ -442,22 +536,28 @@ function CallRow({
               {converted ? "Converted · deposit added" : "Booking confirmed"}
             </span>
           ) : (
-            <select
-              required
+            <span
+              className="call-colour-dots"
+              role="group"
               aria-label={`Call colour for ${e.name}`}
-              value={colour}
-              onChange={(ev) => setColour(ev.target.value as CallColour)}
-              disabled={locked}
             >
-              <option value="" disabled>
-                No colour yet
-              </option>
               {Object.entries(callColours).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v}
-                </option>
+                <button
+                  type="button"
+                  key={k}
+                  className={`call-colour-dot swatch-${k}`}
+                  aria-label={`${v} for ${e.name}`}
+                  title={v}
+                  aria-pressed={colour === k}
+                  disabled={locked}
+                  onClick={() =>
+                    void save({ type: "callColour", colour: k as CallColour })
+                  }
+                >
+                  <i />
+                </button>
               ))}
-            </select>
+            </span>
           )}
         </label>
         <div className="call-note">
@@ -467,6 +567,11 @@ function CallRow({
               aria-label={`Note for ${e.name}`}
               placeholder="Write the latest call note…"
               value={note}
+              ref={(field) => {
+                if (!field) return;
+                field.style.height = "44px";
+                field.style.height = `${Math.max(44, field.scrollHeight + 2)}px`;
+              }}
               onChange={(ev) => setNote(ev.target.value)}
               maxLength={4000}
               required={!closed}
@@ -536,12 +641,17 @@ function CallRow({
             </>
           )}
           {!closed && (
-            <Button type="submit" size="sm" disabled={locked}>
-              {busy
-                ? "Saving…"
-                : initialCallDone(e)
-                  ? "Save call"
-                  : "Save initial call"}
+            <Button
+              type="submit"
+              size="sm"
+              className="call-save-icon"
+              disabled={locked}
+              aria-label={
+                initialCallDone(e) ? "Save call" : "Save initial call"
+              }
+              title="Save call note and follow-up"
+            >
+              <Save size={17} />
             </Button>
           )}
           {closed && (

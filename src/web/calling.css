@@ -631,3 +631,137 @@
     flex-basis: 100%;
   }
 }
+.calling-columns button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+.call-colour-dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+.call-colour-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 32px;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  padding: 4px;
+}
+.call-colour-dot i {
+  display: block;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px #0002;
+}
+.call-colour-dot[aria-pressed="true"] {
+  border-color: transparent;
+  background: transparent;
+}
+.call-colour-dot:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 1px;
+}
+.call-colour-dot:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.call-actions > button.call-save-icon {
+  width: 36px;
+  min-height: 36px;
+  padding: 8px;
+}
+.calling-mobile-sort {
+  display: none;
+}
+@media (max-width: 1100px) {
+  .calling-mobile-sort {
+    display: block;
+  }
+}
+
+/* Compact priority and consistent inline controls. */
+.call-row select.priority-number {
+  width: 64px;
+  min-width: 64px;
+  min-height: 34px;
+  padding: 5px 22px 5px 8px;
+  font-size: 13px;
+}
+.call-colour-dots {
+  display: grid;
+  grid-template-columns: repeat(4, 30px);
+  gap: 2px;
+  width: max-content;
+}
+.call-row textarea {
+  height: 44px;
+  min-height: 44px;
+  padding: 6px 8px;
+  line-height: 15px;
+  overflow-y: hidden;
+}
+.call-actions {
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: start;
+}
+.call-actions > button.call-save-icon {
+  grid-column: 2;
+  grid-row: 1;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 10px;
+  justify-self: end;
+}
+.call-actions .date-time-field,
+.call-actions .date-time-field > input {
+  height: 44px;
+  min-height: 44px;
+}
+@media (min-width: 1101px) {
+  .calling-columns,
+  .call-row-grid {
+    grid-template-columns:
+      minmax(180px, 1.3fr) 90px 126px minmax(170px, 1.3fr)
+      minmax(260px, 1.5fr);
+  }
+}
+@media (min-width: 601px) and (max-width: 1100px) {
+  .call-actions > button.call-save-icon {
+    margin-top: 19px;
+  }
+}
+@media (max-width: 1100px) {
+  .call-actions > label {
+    display: grid;
+    grid-template-rows: 15px 44px auto;
+    gap: 4px;
+  }
+  .call-actions .mobile-field-label {
+    margin: 0;
+    line-height: 15px;
+  }
+  .call-actions > button.call-save-icon {
+    margin-top: 19px;
+  }
+}
+
+/* Background persistence must not flash controls or change row geometry. */
+.call-row.call-saving :is(button, select, input, textarea):disabled {
+  opacity: 1;
+  cursor: inherit;
+}
+html {
+  scrollbar-gutter: stable;
+}

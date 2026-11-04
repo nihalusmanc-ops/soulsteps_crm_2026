@@ -81,20 +81,25 @@ test("staff completes first calls inline and follows up in colour order", async 
   await page.goto("/");
   const rows = page.locator(".call-row");
   await expect(rows).toHaveCount(8);
-  await expect(rows.first()).toContainText("Needs qualification");
-  expect(await rows.locator(".priority-number").allTextContents()).toEqual([
-    "P1",
-    "P2",
-    "P3",
-    "P4",
-    "P4",
-    "P5",
-    "P6",
-  ]);
+  await expect(
+    rows.first().getByLabel("Set priority for Amina Noor"),
+  ).toHaveValue("");
+  await expect(
+    rows.first().getByLabel("Set priority for Amina Noor"),
+  ).toHaveAttribute("title", "Needs qualification (NQ)");
+  expect(
+    await rows
+      .locator(".priority-number")
+      .evaluateAll((els) =>
+        els
+          .filter((e) => (e as unknown as HTMLSelectElement).value)
+          .map((e) => (e as unknown as HTMLSelectElement).value),
+      ),
+  ).toEqual(["P1", "P2", "P3", "P4", "P4", "P5", "P6"]);
   const row = page.getByRole("article", { name: /Adam & Sara/ });
   await row
-    .getByLabel("Call colour for Adam & Sara", { exact: true })
-    .selectOption("orange");
+    .getByRole("button", { name: "Hot for Adam & Sara", exact: true })
+    .click();
   await row
     .getByLabel("Note for Adam & Sara", { exact: true })
     .fill("Interested. Needs time to choose dates.");
@@ -103,28 +108,30 @@ test("staff completes first calls inline and follows up in colour order", async 
     .getByRole("button", { name: "Save initial call", exact: true })
     .click();
   await expect(rows).toHaveCount(7);
-  expect(commands[0].command.followup).toBeUndefined();
+  expect(commands[1].command.followup).toBeUndefined();
   expect(state.enquiries[1].initialCallAt).toBeTruthy();
   await page.getByRole("button", { name: /^Follow-ups/ }).click();
   await expect(page.getByLabel("Filter colour", { exact: true })).toBeVisible();
   await expect(rows).toHaveCount(7);
-  expect(
-    await rows.evaluateAll((elements) =>
-      elements.map((e) =>
-        Array.from(e.classList).find((c) =>
-          /^call-(orange|yellow|purple|pink|cyan|blue)$/.test(c),
+  await expect
+    .poll(() =>
+      rows.evaluateAll((elements) =>
+        elements.map((e) =>
+          Array.from(e.classList).find((c) =>
+            /^call-(orange|yellow|purple|pink|cyan|blue)$/.test(c),
+          ),
         ),
       ),
-    ),
-  ).toEqual([
-    "call-orange",
-    "call-orange",
-    "call-yellow",
-    "call-purple",
-    "call-pink",
-    "call-cyan",
-    "call-blue",
-  ]);
+    )
+    .toEqual([
+      "call-orange",
+      "call-orange",
+      "call-yellow",
+      "call-purple",
+      "call-pink",
+      "call-cyan",
+      "call-blue",
+    ]);
   await expect(row).toContainText("Initial call done");
   await expect(row).toContainText("Not scheduled");
   await row
@@ -148,26 +155,14 @@ test("qualification and standalone note/date updates work without logging calls"
   const { state, commands } = await setup(page);
   await page.goto("/");
   const row = page.getByRole("article", { name: /Amina Noor/ });
-  await row
-    .getByRole("button", { name: "Set priority for Amina Noor", exact: true })
-    .click();
-  await expect(page).toHaveURL(/\/$/);
-  await expect(row.getByLabel("Group for Amina Noor")).toBeFocused();
+  await row.getByText("Edit details", { exact: true }).click();
   await row.getByLabel("Group for Amina Noor").selectOption("friends");
   await row.getByLabel("Schengen for Amina Noor").selectOption("all");
   await row.getByLabel("Travellers for Amina Noor").fill("4");
   await row.getByRole("button", { name: "Save details", exact: true }).click();
-  await expect(row.locator(".priority-number")).toHaveText("P4");
-  const priority = row.getByRole("button", {
-    name: "Set priority for Amina Noor",
-    exact: true,
-  });
-  await priority.click();
-  await expect(priority).toHaveAttribute("aria-expanded", "true");
-  await expect(row.getByLabel("Group for Amina Noor")).toBeVisible();
-  await priority.click();
-  await expect(priority).toHaveAttribute("aria-expanded", "false");
-  await expect(row.getByLabel("Group for Amina Noor")).not.toBeVisible();
+  await expect(row.getByLabel("Set priority for Amina Noor")).toHaveValue("P4");
+  await row.getByLabel("Set priority for Amina Noor").selectOption("P1");
+  await expect.poll(() => state.enquiries[0].rank).toBe("P1");
   await row
     .getByLabel("Note for Amina Noor")
     .fill("Waiting for the first call.");
@@ -252,10 +247,13 @@ test("all outcome colours are visible, conversion is derived and layouts fit des
   await page
     .locator(".call-row")
     .first()
-    .getByLabel("Call colour for Nadia & Yusuf", { exact: true })
+    .getByRole("button", { name: "Hot for Nadia & Yusuf", exact: true })
     .focus();
   await expect(
-    page.getByLabel("Call colour for Nadia & Yusuf", { exact: true }),
+    page.getByRole("button", {
+      name: "Hot for Nadia & Yusuf",
+      exact: true,
+    }),
   ).toBeFocused();
   expect(errors).toEqual([]);
 });
@@ -288,13 +286,7 @@ test("failed initial call rolls back and retries the exact request key", async (
   await page.goto("/");
   const row = page.getByRole("article", { name: /Adam & Sara/ });
   await row
-    .getByLabel("Call colour for Adam & Sara", { exact: true })
-    .selectOption("pink");
-  await row
-    .getByLabel("Note for Adam & Sara", { exact: true })
-    .fill("Busy; needs another call.");
-  await row
-    .getByRole("button", { name: "Save initial call", exact: true })
+    .getByRole("button", { name: /Call back .* busy for Adam & Sara/ })
     .click();
   await expect(page.getByRole("alert").first()).toContainText(
     "Temporary save failure",
@@ -302,7 +294,7 @@ test("failed initial call rolls back and retries the exact request key", async (
   await expect(row).toContainText("Not called");
   fail = false;
   await page.getByRole("button", { name: "Retry save", exact: true }).click();
-  await expect(row).toHaveCount(0);
+  await expect(row).toHaveClass(/call-pink/);
   expect(keys[0]).toBe(keys[1]);
 });
 test("manager edits trip priorities in Settings and family changes include friends", async ({
@@ -376,4 +368,97 @@ test("manager edits trip priorities in Settings and family changes include frien
     .click();
   await expect(dialog).not.toBeVisible();
   expect(published).toBe(true);
+});
+test("combines received date and manual priority and sorts headings", async ({
+  page,
+}) => {
+  const { state } = await setup(page);
+  state.enquiries.forEach((e, i) => {
+    e.createdAt = new Date(
+      Date.now() - (i < 4 ? 2 : 20) * 86400000,
+    ).toISOString();
+  });
+  await page.goto("/?list=all");
+  await page.getByLabel("Filter received date").selectOption("7");
+  await expect(page.locator(".call-row")).toHaveCount(4);
+  await page.getByLabel("Filter priority", { exact: true }).selectOption("P1");
+  await expect(page.locator(".call-row")).toHaveCount(1);
+  await page.getByLabel("Filter priority", { exact: true }).selectOption("");
+  await expect(page.locator(".call-row")).toHaveCount(4);
+  await page
+    .getByRole("button", { name: "Sort by Customer / details", exact: true })
+    .click();
+  await expect(page).toHaveURL(/direction=asc/);
+  const names = ["Adam & Sara", "Amina Noor", "Maya Joseph", "Omar & Lina"];
+  await expect
+    .poll(() => page.locator(".customer-link").allTextContents())
+    .toEqual(names);
+  await page
+    .getByRole("button", { name: "Sort by Customer / details", exact: true })
+    .click();
+  await expect(page).toHaveURL(/direction=desc/);
+  await expect
+    .poll(() => page.locator(".customer-link").allTextContents())
+    .toEqual([...names].reverse());
+  await page.getByLabel("Filter received date").selectOption("30");
+  await expect(page.locator(".call-row")).toHaveCount(16);
+});
+
+test("background saves update immediately without banners, fading or moving rows", async ({
+  page,
+}) => {
+  const { state } = await setup(page);
+  let release!: () => void;
+  let received!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const started = new Promise<void>((resolve) => {
+    received = resolve;
+  });
+  await page.route(
+    "**/api/enquiries/REVIEW-CALL-09/commands",
+    async (route) => {
+      received();
+      await held;
+      const index = state.enquiries.findIndex((e) => e.id === "REVIEW-CALL-09");
+      state.enquiries[index] = applyCommand(
+        state.enquiries[index],
+        route.request().postDataJSON().command,
+        "review",
+        { actor: "Test staff", demo: false },
+      );
+      await route.fulfill({
+        json: { revision: state.enquiries[index].revision },
+      });
+    },
+  );
+  await page.goto("/?list=followups");
+  const row = page.getByRole("article", { name: /Nadia & Yusuf/ });
+  await expect(row).toBeVisible();
+  const note = row.getByLabel("Note for Nadia & Yusuf", { exact: true });
+  await note.fill("Keep this unfinished note while changing colour.");
+  const before = await row.boundingBox();
+  const names = await page.locator(".customer-link").allTextContents();
+  const dot = row.getByRole("button", {
+    name: "No answer for Nadia & Yusuf",
+    exact: true,
+  });
+  await dot.click();
+  await started;
+  await expect(row).toHaveClass(/call-cyan/);
+  await expect(dot).toHaveCSS("opacity", "1");
+  await expect(page.getByText("Saving changes", { exact: false })).toHaveCount(
+    0,
+  );
+  expect(await row.boundingBox()).toEqual(before);
+  expect(await page.locator(".customer-link").allTextContents()).toEqual(names);
+  await expect(note).toHaveValue(
+    "Keep this unfinished note while changing colour.",
+  );
+  release();
+  await expect(dot).toBeEnabled();
+  expect(await row.boundingBox()).toEqual(before);
+  expect(await page.locator(".customer-link").allTextContents()).toEqual(names);
+  await expect(page.locator(".toast")).toHaveCount(0);
 });

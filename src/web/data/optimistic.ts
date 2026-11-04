@@ -27,6 +27,7 @@ export function canPreview(command: Command) {
     "qualify",
     "payment",
     "saveCall",
+    "callColour",
     "quote",
     "override",
   ].includes(command.type);

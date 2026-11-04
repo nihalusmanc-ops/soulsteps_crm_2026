@@ -15,9 +15,10 @@ test("daily flow, preserved history, financial confirmation and reload", async (
   await page.getByLabel("Next follow-up").fill("2026-10-25T10:00");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("dialog")).not.toBeVisible();
-  await expect(
-    page.getByRole("status").filter({ hasText: "Saving changes" }),
-  ).toHaveCount(0);
+  await expect(page.locator("#main-content")).toHaveAttribute(
+    "aria-busy",
+    "false",
+  );
   await page.reload();
   await page.getByRole("button", { name: "activity", exact: true }).click();
   await expect(
@@ -70,9 +71,10 @@ test("search, shared pipeline filters, draft editing and keyboard modal", async 
   await page.getByRole("button", { name: "Edit trip details" }).first().click();
   await page.getByLabel("Trip name").fill("Norway · QA draft");
   await page.getByRole("button", { name: "Save draft trip" }).click();
-  await expect(
-    page.getByRole("status").filter({ hasText: "Saving changes" }),
-  ).toHaveCount(0);
+  await expect(page.locator("#main-content")).toHaveAttribute(
+    "aria-busy",
+    "false",
+  );
   await page.reload();
   await expect(
     page.getByRole("heading", { name: "Norway · QA draft" }),

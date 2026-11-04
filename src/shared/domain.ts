@@ -225,6 +225,18 @@ export const nextTask = (e: Enquiry) =>
 const text = z.string().trim().min(1).max(4000);
 export const commandSchema = z.discriminatedUnion("type", [
   z.object({
+    type: z.literal("callColour"),
+    colour: z.enum([
+      "orange",
+      "yellow",
+      "purple",
+      "pink",
+      "cyan",
+      "blue",
+      "red",
+    ]),
+  }),
+  z.object({
     type: z.literal("saveCall"),
     colour: z.enum([
       "orange",
@@ -356,6 +368,16 @@ export function applyCommand(
     activity("task", `${type} scheduled for ${dateTime(due)} (Dubai). ${note}`);
   };
   switch (cmd.type) {
+    case "callColour": {
+      if (
+        e.booking ||
+        e.payments.some((p) => p.status !== "reversed" && p.amount > 0)
+      )
+        throw new Error("Deposit colours are managed by payments.");
+      e.callColour = cmd.colour;
+      activity("qualification", `Call colour changed to ${cmd.colour}`);
+      break;
+    }
     case "saveCall": {
       if (
         e.booking ||

@@ -158,3 +158,20 @@ it("optimistically moves a first call and restores it on failure", () => {
   expect(callingList(preview.enquiries[0])).toBe("followups");
   expect(rollbackWrite(preview, before, write)).toEqual(before);
 });
+it("saves a colour without a note or completed call and preserves tasks", () => {
+  const before = samples()[1];
+  const after = applyCommand(
+    before,
+    { type: "callColour", colour: "orange" },
+    "review",
+    context,
+  );
+  expect(leadColour(after)).toBe("orange");
+  expect(after.initialCallAt).toBeUndefined();
+  expect(after.currentNote).toBe(before.currentNote);
+  expect(after.tasks).toEqual(before.tasks);
+  expect(after.activities.some((a) => a.type === "call")).toBe(false);
+  expect(
+    commandSchema.safeParse({ type: "callColour", colour: "green" }).success,
+  ).toBe(false);
+});

@@ -305,12 +305,6 @@ export default function App() {
   });
   const client = useQueryClient();
   const [toast, setToast] = useState("");
-  useEffect(() => {
-    if (!writes.succeeded) return;
-    setToast("Saved");
-    const timer = window.setTimeout(() => setToast(""), 4500);
-    return () => window.clearTimeout(timer);
-  }, [writes.succeeded]);
   const [error, setError] = useState("");
   const [mobile, setMobile] = useState(false);
   const role = me.data?.role || "staff";
@@ -403,7 +397,7 @@ export default function App() {
       menuRef.current?.focus();
     };
   }, [mobile]);
-  async function run(work: () => Promise<unknown>, message = "Saved") {
+  async function run(work: () => Promise<unknown>, message = "") {
     if (writes.locked() || actionLock.current) {
       setError("Please wait for the current save to finish.");
       return false;
@@ -414,7 +408,7 @@ export default function App() {
     try {
       await work();
       await client.invalidateQueries({ queryKey: ["crm"] });
-      setToast(message);
+      if (message) setToast(message);
       setError("");
       window.setTimeout(() => setToast(""), 4500);
       return true;
@@ -603,12 +597,11 @@ export default function App() {
             Demo data · No customer messages sent
           </div>
         )}
-        <main id="main-content" tabIndex={-1}>
-          {(writes.pending || actionPending) && (
-            <div role="status" className="notice">
-              Saving changes…
-            </div>
-          )}
+        <main
+          id="main-content"
+          tabIndex={-1}
+          aria-busy={writes.pending || actionPending}
+        >
           {writes.error && (
             <div role="alert" className="error-banner">
               <span>
