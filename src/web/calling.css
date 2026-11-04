@@ -214,13 +214,28 @@
   z-index: 30;
   padding: 12px 14px 12px 18px;
   color: #6e675e;
-  background: #f5f3ee;
-  border-bottom: 1px solid #d8d4cc;
-  border-radius: 10px 10px 0 0;
-  /* Opaque backing keeps scrolling row colours out of the rounded corners. */
-  box-shadow: 0 -10px 0 0 #faf9f6;
+  background: transparent;
+  border-radius: 14px 14px 0 0;
   font-size: 11px;
   font-weight: 600;
+}
+.calling-columns::before,
+.calling-columns::after {
+  content: "";
+  position: absolute;
+  inset: 0 -1px;
+  pointer-events: none;
+}
+.calling-columns::before {
+  /* Cover the scrolling rows and the table's straight outer borders. */
+  z-index: -2;
+  background: #faf9f6;
+}
+.calling-columns::after {
+  z-index: -1;
+  background: #f5f3ee;
+  border: 1px solid #d8d4cc;
+  border-radius: inherit;
 }
 .calling-columns button {
   border: 0;
