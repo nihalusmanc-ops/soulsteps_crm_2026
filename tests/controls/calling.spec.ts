@@ -220,7 +220,7 @@ test("all outcome colours are visible, conversion is derived and layouts fit des
   await page.getByRole("button", { name: /^Follow-ups/ }).click();
   await expect(
     page.getByText("Pick up the next conversation.", { exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await expect(page.locator(".call-row")).toHaveCount(6);
   const heights = await page
     .locator(".call-row")

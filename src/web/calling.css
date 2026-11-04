@@ -1,5 +1,16 @@
-﻿.calling-workspace {
+.calling-workspace {
   --calling-controls-height: 200px;
+  margin-top: -8px;
+}
+.calling-workspace .page-heading {
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.calling-workspace .page-heading h1 {
+  margin: 0;
 }
 .calling-controls {
   position: sticky;

@@ -238,13 +238,6 @@ export function CallingWorkspace({
       <div className="page-heading">
         <div>
           <h1>Enquiries</h1>
-          <p className="muted">
-            {active === "new"
-              ? "Start with the enquiries waiting for their first call."
-              : active === "followups"
-                ? "Pick up the next conversation."
-                : "Every enquiry, including converted and disqualified."}
-          </p>
         </div>
         <Button onClick={onCreate}>
           <Plus size={16} />
