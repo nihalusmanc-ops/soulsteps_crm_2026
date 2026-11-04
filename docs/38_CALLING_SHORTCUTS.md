@@ -1,5 +1,7 @@
 ﻿# Calling workspace shortcuts
 
+The current approved workflow is documented in [Calling workspace improvements](39_CALLING_WORKSPACE_IMPROVEMENTS.md). This page records the initial shortcut release.
+
 - Each row offers seven call-colour dots with accessible names and hover descriptions. A dot saves immediately through the audited command API and optimistic rollback. Green remains derived from received payments.
 - Changing a colour does not record a completed call, alter notes, or complete follow-up tasks. The save icon records the call with its note and optional follow-up. A red row is excluded from active calling lists, as before.
 - Priority can be selected directly as P1–P6. This uses the existing audited manual override and is preserved during subsequent qualification/rule updates. Edit details continues to compute priority for enquiries without overrides.

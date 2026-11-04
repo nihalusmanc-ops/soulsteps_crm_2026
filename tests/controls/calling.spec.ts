@@ -45,13 +45,16 @@ async function setup(page: Page, role = "staff") {
         "review",
         { actor: "Test staff", demo: false },
       );
-      if (body.command.type === "qualify")
+      if (
+        (body.command.type === "qualify" && !state.enquiries[index].override) ||
+        body.command.type === "automaticPriority"
+      )
         Object.assign(
           state.enquiries[index],
           evaluateRules(
             trip.activeRules!,
-            body.command.group,
-            body.command.visa,
+            state.enquiries[index].group,
+            state.enquiries[index].visa,
           ),
         );
       await route.fulfill({
@@ -141,9 +144,12 @@ test("staff completes first calls inline and follows up in colour order", async 
   await expect
     .poll(() => state.enquiries[1].currentNote)
     .toBe("Ready to discuss the deposit.");
-  expect(
-    state.enquiries[1].activities.filter((a) => a.type === "call"),
-  ).toHaveLength(2);
+  await expect
+    .poll(
+      () =>
+        state.enquiries[1].activities.filter((a) => a.type === "call").length,
+    )
+    .toBe(2);
   await page.getByLabel("Filter colour", { exact: true }).selectOption("cyan");
   await expect(rows).toHaveCount(1);
   await page.getByRole("button", { name: /^New enquiries/ }).click();
@@ -166,7 +172,7 @@ test("qualification and standalone note/date updates work without logging calls"
   await row
     .getByLabel("Note for Amina Noor")
     .fill("Waiting for the first call.");
-  await row.getByRole("button", { name: "Save note only" }).click();
+
   await expect
     .poll(() => state.enquiries[0].currentNote)
     .toBe("Waiting for the first call.");
@@ -176,8 +182,8 @@ test("qualification and standalone note/date updates work without logging calls"
   await followup
     .getByLabel("Follow-up date for Arjun Shah", { exact: true })
     .fill("2026-11-03T14:30");
-  await followup.getByRole("button", { name: "Save follow-up only" }).click();
-  await expect.poll(() => commands.at(-1)?.command.type).toBe("task");
+
+  await expect.poll(() => commands.at(-1)?.command.type).toBe("setFollowup");
   expect(commands.at(-1).command.due).toBe("2026-11-03T10:30:00.000Z");
   await expect(
     followup.getByLabel("Follow-up date for Arjun Shah", { exact: true }),
@@ -221,7 +227,7 @@ test("all outcome colours are visible, conversion is derived and layouts fit des
     .evaluateAll((rows) =>
       rows.map((row) => row.getBoundingClientRect().height),
     );
-  expect(Math.max(...heights)).toBeLessThan(115);
+  expect(Math.max(...heights)).toBeLessThan(150);
   await page.screenshot({
     path: ".wrangler/calling-desktop.png",
     fullPage: true,
@@ -372,6 +378,7 @@ test("manager edits trip priorities in Settings and family changes include frien
 test("combines received date and manual priority and sorts headings", async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 1600, height: 1000 });
   const { state } = await setup(page);
   state.enquiries.forEach((e, i) => {
     e.createdAt = new Date(
@@ -457,8 +464,334 @@ test("background saves update immediately without banners, fading or moving rows
     "Keep this unfinished note while changing colour.",
   );
   release();
+  await expect(page.locator("#main-content")).toHaveAttribute(
+    "aria-busy",
+    "false",
+  );
   await expect(dot).toBeEnabled();
   expect(await row.boundingBox()).toEqual(before);
   expect(await page.locator(".customer-link").allTextContents()).toEqual(names);
   await expect(page.locator(".toast")).toHaveCount(0);
+});
+
+test("notes and dates autosave across tabs without recording a call, and each tab remembers filters", async ({
+  page,
+}) => {
+  const { state } = await setup(page);
+  await page.goto("/?list=new");
+  const row = page.getByRole("article", { name: /Adam & Sara/ });
+  await row
+    .getByLabel("Note for Adam & Sara", { exact: true })
+    .fill("Autosaved across tabs");
+  await page.getByRole("button", { name: /^Follow-ups/ }).click();
+  await expect
+    .poll(() => state.enquiries[1].currentNote)
+    .toBe("Autosaved across tabs");
+  expect(state.enquiries[1].initialCallAt).toBeUndefined();
+  await page.getByLabel("Filter priority", { exact: true }).selectOption("P1");
+  await page.getByLabel("Filter received date").selectOption("7");
+  await expect(page).toHaveURL(/period=7/);
+  await page.getByRole("button", { name: /^All enquiries/ }).click();
+  await expect(page.getByLabel("Filter priority", { exact: true })).toHaveValue(
+    "",
+  );
+  await page.getByRole("button", { name: /^Follow-ups/ }).click();
+  await expect(page.getByLabel("Filter priority", { exact: true })).toHaveValue(
+    "P1",
+  );
+  await expect(page.getByLabel("Filter received date")).toHaveValue("7");
+  await page.getByRole("button", { name: /^New enquiries/ }).click();
+  await expect(
+    row.getByLabel("Note for Adam & Sara", { exact: true }),
+  ).toHaveValue("Autosaved across tabs");
+  await row
+    .getByLabel("Follow-up date for Adam & Sara", { exact: true })
+    .fill("2026-11-06T14:30");
+  await expect
+    .poll(() =>
+      state.enquiries[1].tasks
+        .filter((t) => t.status === "pending")
+        .map((t) => t.due),
+    )
+    .toEqual(["2026-11-06T10:30:00.000Z"]);
+  expect(state.enquiries[1].initialCallAt).toBeUndefined();
+  await row
+    .getByRole("button", { name: "Hot for Adam & Sara", exact: true })
+    .click();
+  await expect.poll(() => state.enquiries[1].callColour).toBe("orange");
+  await expect(row).toContainText("Not called");
+  expect(state.enquiries[1].activities.some((a) => a.type === "call")).toBe(
+    false,
+  );
+  await row
+    .getByLabel("Follow-up date for Adam & Sara", { exact: true })
+    .fill("2026-11-07T15:00");
+  await row
+    .getByLabel("Follow-up date for Adam & Sara", { exact: true })
+    .press("Enter");
+  await expect
+    .poll(() =>
+      state.enquiries[1].tasks
+        .filter((t) => t.status === "pending")
+        .map((t) => t.due),
+    )
+    .toEqual(["2026-11-07T11:00:00.000Z"]);
+  expect(state.enquiries[1].initialCallAt).toBeUndefined();
+  await row.getByLabel("Note for Adam & Sara", { exact: true }).fill("");
+  await expect.poll(() => state.enquiries[1].currentNote).toBe("");
+});
+
+test("rapid colour changes stay ordered while a different enquiry saves independently", async ({
+  page,
+}) => {
+  const { state } = await setup(page);
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let requests = 0;
+  const revisions: number[] = [];
+  await page.route(
+    "**/api/enquiries/REVIEW-CALL-02/commands",
+    async (route) => {
+      const body = route.request().postDataJSON();
+      revisions.push(body.revision);
+      requests++;
+      if (requests === 1) await held;
+      expect(body.revision).toBe(state.enquiries[1].revision);
+      state.enquiries[1] = applyCommand(
+        state.enquiries[1],
+        body.command,
+        "review",
+        { actor: "Test staff", demo: false },
+      );
+      await route.fulfill({ json: { revision: state.enquiries[1].revision } });
+    },
+  );
+  await page.goto("/?list=new");
+  const row = page.getByRole("article", { name: /Adam & Sara/ });
+  await row
+    .getByRole("button", { name: "Hot for Adam & Sara", exact: true })
+    .click();
+  await expect.poll(() => requests).toBe(1);
+  await row
+    .getByRole("button", { name: "No answer for Adam & Sara", exact: true })
+    .click();
+  await row
+    .getByRole("button", { name: "Hot for Adam & Sara", exact: true })
+    .click();
+  const other = page.getByRole("article", { name: /Omar & Lina/ });
+  await other.getByLabel("Set priority for Omar & Lina").selectOption("P1");
+  await expect.poll(() => state.enquiries[2].rank).toBe("P1");
+  await expect(row).toHaveClass(/call-orange/);
+  expect(requests).toBe(1);
+  release();
+  await expect.poll(() => requests).toBe(3);
+  await expect(page.locator("#main-content")).toHaveAttribute(
+    "aria-busy",
+    "false",
+  );
+  expect(revisions).toEqual([0, 1, 2]);
+  expect(state.enquiries[1].callColour).toBe("orange");
+  expect(state.enquiries[1].initialCallAt).toBeUndefined();
+});
+
+test("red cancels pending follow-ups and Undo restores the enquiry without logging a call", async ({
+  page,
+}) => {
+  const { state } = await setup(page);
+  await page.goto("/?list=followups");
+  const row = page.getByRole("article", { name: /Nadia & Yusuf/ });
+  const initial = state.enquiries[8].initialCallAt;
+  await row
+    .getByRole("button", {
+      name: "Disqualified for Nadia & Yusuf",
+      exact: true,
+    })
+    .click();
+  await expect(row).toHaveCount(0);
+  await expect.poll(() => state.enquiries[8].stage).toBe("LOST");
+  expect(
+    state.enquiries[8].tasks.filter((t) => t.status === "pending"),
+  ).toHaveLength(0);
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(row).toBeVisible();
+  await expect.poll(() => state.enquiries[8].stage).toBe("QUALIFYING");
+  expect(
+    state.enquiries[8].tasks.filter((t) => t.status === "pending"),
+  ).toHaveLength(1);
+  expect(state.enquiries[8].initialCallAt).toBe(initial);
+  await page.getByRole("button", { name: /^All enquiries/ }).click();
+  const closed = page.getByRole("article", { name: /Daniel Cole/ });
+  await closed
+    .getByRole("button", { name: "Reopen enquiry", exact: true })
+    .click();
+  await expect.poll(() => state.enquiries[14].stage).toBe("QUALIFYING");
+});
+
+test("manual priorities return to trip rules and the colour guide explains compact controls", async ({
+  page,
+}) => {
+  const { state } = await setup(page);
+  await page.goto("/?list=new");
+  const row = page.getByRole("article", { name: /Adam & Sara/ });
+  const rank = row.getByLabel("Set priority for Adam & Sara");
+  await rank.selectOption("P6");
+  await expect.poll(() => state.enquiries[1].rank).toBe("P6");
+  await expect(row.locator(".call-priority-source")).toHaveText("Manual");
+  await rank.selectOption("auto");
+  await expect.poll(() => state.enquiries[1].rank).toBe("P1");
+  expect(state.enquiries[1].override).toBeUndefined();
+  await expect(row.locator(".call-priority-source")).toHaveText("Auto");
+  await page.getByRole("button", { name: "Colour guide", exact: true }).click();
+  await expect(page.locator("#calling-legend")).toContainText(
+    "NQ = Needs qualification",
+  );
+  await expect(page.locator("#calling-legend")).toContainText(
+    "Use the save icon to record a call attempt",
+  );
+});
+
+test("status filters find uncalled enquiries and due filters distinguish overdue and unscheduled", async ({
+  page,
+}) => {
+  const { state } = await setup(page);
+  state.enquiries.forEach((e) => {
+    e.tasks = [];
+  });
+  state.enquiries[8].tasks = [
+    {
+      id: "OVERDUE",
+      type: "Follow-up",
+      due: new Date(Date.now() - 2 * 86400000).toISOString(),
+      status: "pending",
+      note: "Fictional overdue",
+    },
+  ];
+  await page.goto("/?list=all");
+  await page.getByLabel("Filter enquiry status").selectOption("new");
+  await expect(page.locator(".call-row")).toHaveCount(8);
+  await expect(
+    page.getByText("Showing 8 of 16", { exact: true }),
+  ).toBeVisible();
+  await page.getByLabel("Filter priority", { exact: true }).selectOption("P1");
+  await expect(page.locator(".call-row")).toHaveCount(1);
+  await page
+    .getByRole("button", { name: "Remove P1 filter", exact: true })
+    .click();
+  await expect(page.locator(".call-row")).toHaveCount(8);
+  await page.getByRole("button", { name: /^Follow-ups/ }).click();
+  await page.getByRole("button", { name: /^Overdue/ }).click();
+  await expect(page.locator(".call-row")).toHaveCount(1);
+  await expect(page.locator(".call-row")).toContainText("2 days overdue");
+  await page.getByRole("button", { name: /^Not scheduled/ }).click();
+  await expect(page.locator(".call-row")).toHaveCount(5);
+});
+
+test("server refresh updates untouched notes but preserves and flags an active draft", async ({
+  page,
+}) => {
+  const { state, commands } = await setup(page);
+  await page.goto("/?list=followups");
+  const row = page.getByRole("article", { name: /Nadia & Yusuf/ }),
+    note = row.getByLabel("Note for Nadia & Yusuf", { exact: true });
+  state.enquiries[8].currentNote = "A newer note from another staff member";
+  state.enquiries[8].revision++;
+  const other = page.getByRole("article", { name: /Arjun Shah/ });
+  await other
+    .getByRole("button", { name: "Hot for Arjun Shah", exact: true })
+    .click();
+  await expect(note).toHaveValue("A newer note from another staff member");
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let started = false;
+  await page.route(
+    "**/api/enquiries/REVIEW-CALL-11/commands",
+    async (route) => {
+      started = true;
+      await held;
+      state.enquiries[10] = applyCommand(
+        state.enquiries[10],
+        route.request().postDataJSON().command,
+        "review",
+        { actor: "Test staff", demo: false },
+      );
+      await route.fulfill({ json: { revision: state.enquiries[10].revision } });
+    },
+  );
+  await other
+    .getByRole("button", { name: "No answer for Arjun Shah", exact: true })
+    .click();
+  await expect.poll(() => started).toBe(true);
+  await note.fill("Keep my unfinished draft");
+  state.enquiries[8].currentNote = "Another new saved note";
+  state.enquiries[8].revision++;
+  release();
+  await expect(row.locator(".calling-draft-conflict")).toContainText(
+    "Your draft is kept",
+  );
+  await expect(note).toHaveValue("Keep my unfinished draft");
+  await page.waitForTimeout(900);
+  expect(state.enquiries[8].currentNote).toBe("Another new saved note");
+  expect(commands.filter((c) => c.command.type === "setNote")).toHaveLength(0);
+  await row.getByRole("button", { name: "Use latest", exact: true }).click();
+  await expect(note).toHaveValue("Another new saved note");
+});
+
+test("follow-up shortcuts autosave and controls remain visible at narrow widths and while scrolling", async ({
+  page,
+}) => {
+  const { state } = await setup(page);
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await page.goto("/?list=followups");
+  const row = page.getByRole("article", { name: /Arjun Shah/ });
+  await row.getByRole("button", { name: "Tomorrow", exact: true }).click();
+  await expect
+    .poll(
+      () =>
+        state.enquiries[10].tasks.filter((t) => t.status === "pending").length,
+    )
+    .toBe(1);
+  await expect(row).toContainText("Tomorrow,");
+  await row.getByRole("button", { name: "Clear", exact: true }).click();
+  await expect
+    .poll(
+      () =>
+        state.enquiries[10].tasks.filter((t) => t.status === "pending").length,
+    )
+    .toBe(0);
+  for (const width of [1600, 1280, 1101, 1024, 768, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    const first = page.locator(".call-row").first();
+    const bounds = await first.boundingBox();
+    const save = await first.locator(".call-save-icon").boundingBox();
+    const date = await first.locator(".date-time-field").boundingBox();
+    expect(save!.x + save!.width).toBeLessThanOrEqual(
+      bounds!.x + bounds!.width,
+    );
+    expect(date!.width).toBeGreaterThan(190);
+    const dots = await first
+      .locator(".call-colour-dot")
+      .evaluateAll((els) => els.map((el) => el.getBoundingClientRect().top));
+    expect(new Set(dots.slice(0, 4)).size).toBe(1);
+    expect(new Set(dots.slice(4)).size).toBe(1);
+    expect(dots[4]).toBeGreaterThan(dots[0]);
+  }
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await page.evaluate(() => window.scrollTo(0, 500));
+  const controls = await page.locator(".calling-controls").boundingBox(),
+    columns = await page.locator(".calling-columns").boundingBox();
+  expect(controls!.y).toBeCloseTo(0, 0);
+  expect(columns!.y).toBeCloseTo(controls!.height, 0);
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect(
+    page.getByLabel("Filter priority", { exact: true }),
+  ).not.toBeVisible();
+  await page.getByRole("button", { name: /^Filters/ }).click();
+  await expect(
+    page.getByLabel("Filter priority", { exact: true }),
+  ).toBeVisible();
 });

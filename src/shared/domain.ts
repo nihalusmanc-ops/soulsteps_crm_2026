@@ -89,6 +89,11 @@ export type Enquiry = {
   lastContact?: string;
   initialCallAt?: string;
   callColour?: CallColour;
+  disqualification?: {
+    stage: Stage;
+    colour?: CallColour;
+    pendingTaskIds: string[];
+  };
   currentNote?: string;
   sample?: boolean;
   originalNote: string;
@@ -222,8 +227,17 @@ export const nextTask = (e: Enquiry) =>
   e.tasks
     .filter((t) => t.status === "pending")
     .sort((a, b) => a.due.localeCompare(b.due))[0];
+export const salesCallTaskTypes = ["Follow-up", "Callback", "Initial call"];
 const text = z.string().trim().min(1).max(4000);
 export const commandSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("setNote"), text: z.string().max(4000) }),
+  z.object({
+    type: z.literal("setFollowup"),
+    due: z.string().nullable(),
+    note: z.string().max(4000),
+  }),
+  z.object({ type: z.literal("automaticPriority") }),
+  z.object({ type: z.literal("reopen") }),
   z.object({
     type: z.literal("callColour"),
     colour: z.enum([
@@ -368,12 +382,121 @@ export function applyCommand(
     activity("task", `${type} scheduled for ${dateTime(due)} (Dubai). ${note}`);
   };
   switch (cmd.type) {
+    case "setNote":
+      e.currentNote = cmd.text;
+      activity("note", cmd.text || "Latest note cleared by staff.");
+      break;
+    case "setFollowup": {
+      if (
+        !isOpen(e) ||
+        e.callColour === "red" ||
+        e.booking ||
+        e.payments.some((p) => p.status !== "reversed" && p.amount > 0)
+      )
+        throw new Error(
+          "Reopen this enquiry before scheduling a sales follow-up.",
+        );
+      if (cmd.due) dueDate(cmd.due);
+      e.tasks
+        .filter(
+          (t) => t.status === "pending" && salesCallTaskTypes.includes(t.type),
+        )
+        .forEach((t) => {
+          t.status = "cancelled";
+        });
+      if (cmd.due) addTask(cmd.due, "Follow-up", cmd.note);
+      else activity("task", "Follow-up date cleared by staff.");
+      break;
+    }
+    case "automaticPriority":
+      if (!isOpen(e) || e.booking)
+        throw new Error(
+          "Reopen this enquiry before changing its priority rules.",
+        );
+      delete e.override;
+      delete e.rankRuleVersion;
+      delete e.rankComputedAt;
+      e.rank = null;
+      e.rankReason = "Needs qualification: no reviewed rule version is active.";
+      activity(
+        "qualification",
+        "Manual priority removed; use the trip's automatic priority rules.",
+      );
+      break;
+    case "reopen": {
+      if (
+        e.booking ||
+        e.payments.some((p) => p.status !== "reversed" && p.amount > 0)
+      )
+        throw new Error(
+          "Deposit and booking records cannot be reopened from the calling list.",
+        );
+      const previous = e.disqualification;
+      e.stage =
+        previous &&
+        !["LOST", "NOT_SUITABLE", "ON_HOLD", "CONFIRMED"].includes(
+          previous.stage,
+        )
+          ? previous.stage
+          : e.initialCallAt || e.lastContact
+            ? "QUALIFYING"
+            : "NEW";
+      if (e.callColour === "red") e.callColour = previous?.colour;
+      e.tasks
+        .filter(
+          (t) =>
+            previous?.pendingTaskIds.includes(t.id) && t.status === "cancelled",
+        )
+        .forEach((t) => {
+          t.status = "pending";
+        });
+      delete e.disqualification;
+      activity("qualification", "Enquiry reopened by staff.");
+      break;
+    }
     case "callColour": {
       if (
         e.booking ||
         e.payments.some((p) => p.status !== "reversed" && p.amount > 0)
       )
         throw new Error("Deposit colours are managed by payments.");
+      if (cmd.colour === "red") {
+        if (e.callColour !== "red")
+          e.disqualification = {
+            stage: e.stage,
+            colour: e.callColour,
+            pendingTaskIds: e.tasks
+              .filter((t) => t.status === "pending")
+              .map((t) => t.id),
+          };
+        e.stage = "LOST";
+        e.tasks
+          .filter((t) => t.status === "pending")
+          .forEach((t) => {
+            t.status = "cancelled";
+          });
+      } else if (
+        e.callColour === "red" ||
+        ["LOST", "NOT_SUITABLE", "ON_HOLD"].includes(e.stage)
+      ) {
+        const previous = e.disqualification;
+        e.stage =
+          previous && isOpen({ ...e, stage: previous.stage })
+            ? previous.stage
+            : e.initialCallAt || e.lastContact
+              ? "QUALIFYING"
+              : "NEW";
+        e.tasks
+          .filter(
+            (t) =>
+              previous?.pendingTaskIds.includes(t.id) &&
+              t.status === "cancelled",
+          )
+          .forEach((t) => {
+            t.status = "pending";
+          });
+        delete e.disqualification;
+      }
       e.callColour = cmd.colour;
       activity("qualification", `Call colour changed to ${cmd.colour}`);
       break;

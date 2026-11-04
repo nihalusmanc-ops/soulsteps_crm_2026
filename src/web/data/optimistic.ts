@@ -30,6 +30,10 @@ export function canPreview(command: Command) {
     "callColour",
     "quote",
     "override",
+    "setNote",
+    "setFollowup",
+    "automaticPriority",
+    "reopen",
   ].includes(command.type);
 }
 export function previewWrite(
@@ -82,8 +86,14 @@ export function previewWrite(
     actor: actor.name,
     demo: actor.local,
   });
-  if (write.command.type === "qualify") {
-    if (!eligibleForRecompute(current)) {
+  if (
+    write.command.type === "qualify" ||
+    write.command.type === "automaticPriority"
+  ) {
+    if (
+      write.command.type !== "automaticPriority" &&
+      !eligibleForRecompute(current)
+    ) {
       next.rank = current.rank;
       next.rankReason = current.rankReason;
       next.rankRuleVersion = current.rankRuleVersion;

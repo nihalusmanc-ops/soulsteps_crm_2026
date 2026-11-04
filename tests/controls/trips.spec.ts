@@ -132,9 +132,11 @@ test("trip list filters and sorts, opens from a whole row, links bookings and pr
   await page.getByLabel("Sort trips", { exact: true }).selectOption("name");
   await expect(rows.first()).toContainText("Alpine escape");
   await page.getByLabel("Search trips", { exact: true }).fill("Norway");
+  await expect(rows).toHaveCount(1);
   await page
     .getByLabel("Filter trip status", { exact: true })
     .selectOption("published");
+  await expect(page).toHaveURL(/status=published/);
   await expect(rows).toHaveCount(1);
   await page.screenshot({ path: ".wrangler/trips-list-desktop.png" });
   await rows.first().locator("td").nth(1).click();

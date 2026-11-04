@@ -195,8 +195,14 @@ export class Repository {
       );
     }
     const activeTrip = trip[0]?.data as Trip;
-    if (command.type === "qualify" && !before.override) {
-      if (!eligibleForRecompute(before)) {
+    if (
+      (command.type === "qualify" && !before.override) ||
+      command.type === "automaticPriority"
+    ) {
+      if (
+        command.type !== "automaticPriority" &&
+        !eligibleForRecompute(before)
+      ) {
         after.rank = before.rank;
         after.rankReason = before.rankReason;
         after.rankRuleVersion = before.rankRuleVersion;

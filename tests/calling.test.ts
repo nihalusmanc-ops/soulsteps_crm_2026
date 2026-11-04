@@ -175,3 +175,120 @@ it("saves a colour without a note or completed call and preserves tasks", () => 
     commandSchema.safeParse({ type: "callColour", colour: "green" }).success,
   ).toBe(false);
 });
+import {
+  compareColumn,
+  dueMatches,
+  followupLabel,
+} from "../src/shared/calling";
+it("disqualifies without logging a call, cancels tasks, and restores them on undo", () => {
+  const before = samples()[8];
+  const red = applyCommand(
+    before,
+    { type: "callColour", colour: "red" },
+    "review",
+    context,
+  );
+  expect(red.stage).toBe("LOST");
+  expect(red.initialCallAt).toBe(before.initialCallAt);
+  expect(red.tasks.every((t) => t.status !== "pending")).toBe(true);
+  const restored = applyCommand(red, { type: "reopen" }, "review", context);
+  expect(restored.stage).toBe(before.stage);
+  expect(restored.callColour).toBe(before.callColour);
+  expect(restored.tasks).toEqual(before.tasks);
+  const recoloured = applyCommand(
+    red,
+    { type: "callColour", colour: "pink" },
+    "review",
+    context,
+  );
+  expect(callingList(recoloured)).toBe("followups");
+  expect(recoloured.tasks).toEqual(before.tasks);
+});
+it("autosaves an empty note and follow-up edits without recording a call or changing priority", () => {
+  const before = samples()[1];
+  const note = applyCommand(
+    before,
+    { type: "setNote", text: "" },
+    "review",
+    context,
+  );
+  const scheduled = applyCommand(
+    note,
+    { type: "setFollowup", due: "2026-11-05T10:00:00Z", note: "" },
+    "review",
+    context,
+  );
+  expect(scheduled.initialCallAt).toBeUndefined();
+  expect(scheduled.rank).toBe(before.rank);
+  expect(scheduled.currentNote).toBe("");
+  expect(scheduled.tasks.filter((t) => t.status === "pending")).toHaveLength(1);
+  const cleared = applyCommand(
+    scheduled,
+    { type: "setFollowup", due: null, note: "" },
+    "review",
+    context,
+  );
+  expect(cleared.tasks.filter((t) => t.status === "pending")).toHaveLength(0);
+  expect(cleared.activities.some((a) => a.type === "call")).toBe(false);
+});
+it("sorts call colours in working order and evaluates follow-up filters in Dubai time", () => {
+  const rows = samples().filter(
+    (e) => e.callColour && e.callColour !== "red" && leadColour(e) !== "green",
+  );
+  expect(
+    [...rows]
+      .reverse()
+      .sort((a, b) => compareColumn(a, b, "colour", "asc"))
+      .map(leadColour),
+  ).toEqual(["orange", "yellow", "purple", "pink", "cyan", "blue"]);
+  const e = samples()[8];
+  e.tasks[0].due = "2026-11-04T20:30:00Z";
+  const now = new Date("2026-11-04T19:00:00Z");
+  expect(dueMatches(e, "today", now)).toBe(false);
+  expect(dueMatches(e, "upcoming", now)).toBe(true);
+  expect(followupLabel(e.tasks[0].due, now)).toMatch(/^Tomorrow/);
+  e.tasks[0].due = "2026-11-02T10:00:00Z";
+  expect(followupLabel(e.tasks[0].due, now)).toBe("2 days overdue");
+});
+it("keeps callbacks visible and reschedules sales call tasks without cancelling other work", () => {
+  const before = samples()[8];
+  before.tasks = [
+    {
+      id: "callback",
+      type: "Callback",
+      due: "2026-11-05T10:00:00Z",
+      status: "pending",
+      note: "Agreed callback",
+    },
+    {
+      id: "availability",
+      type: "Availability check",
+      due: "2026-11-06T10:00:00Z",
+      status: "pending",
+      note: "Check departure",
+    },
+  ];
+  expect(dueMatches(before, "unscheduled")).toBe(false);
+  const after = applyCommand(
+    before,
+    {
+      type: "setFollowup",
+      due: "2026-11-07T10:00:00Z",
+      note: "New agreed time",
+    },
+    "review",
+    context,
+  );
+  expect(after.tasks.find((t) => t.id === "callback")?.status).toBe(
+    "cancelled",
+  );
+  expect(after.tasks.find((t) => t.id === "availability")?.status).toBe(
+    "pending",
+  );
+});
+import { receivedAgeLabel } from "../src/shared/calling";
+it("labels enquiry age by the Dubai calendar day", () => {
+  expect(
+    receivedAgeLabel("2026-11-04T19:30:00Z", new Date("2026-11-04T20:30:00Z")),
+  ).toBe("1d ago");
+});

@@ -30,10 +30,12 @@ const months = Array.from({ length: 12 }, (_, m) =>
 /** Keeps a real native input for FormData, validation and direct keyboard editing. */
 export function DateTimeField({
   pickerLabel,
+  onCommit,
   ...props
 }: Omit<ComponentProps<"input">, "type"> & {
   type: "date" | "time" | "datetime-local";
   pickerLabel: string;
+  onCommit?: (value: string) => void;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -74,6 +76,7 @@ export function DateTimeField({
     )!.set!.call(field, value);
     field.dispatchEvent(new Event("input", { bubbles: true }));
     field.dispatchEvent(new Event("change", { bubbles: true }));
+    onCommit?.(value);
     setOpen(false);
   };
   const first = new Date(month.getFullYear(), month.getMonth(), 1, 12);

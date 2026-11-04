@@ -773,3 +773,107 @@ it("allows shared operational updates without granting manager financial permiss
     ),
   ).rejects.toMatchObject({ status: 403 });
 });
+it("restores the selected trip's reviewed automatic priority after a manual override", async () => {
+  const repo = new Repository(db, staff);
+  const tripId = (await repo.enquiry("SHARED")).tripId;
+  const row = sqlite.prepare("SELECT data FROM trips WHERE id=?").get(tripId)!;
+  const trip = {
+    ...JSON.parse(String(row.data)),
+    activeRules: defaultRules,
+    activeRuleVersion: 7,
+  };
+  sqlite
+    .prepare("UPDATE trips SET data=? WHERE id=?")
+    .run(JSON.stringify(trip), tripId);
+  await repo.command(
+    "SHARED",
+    0,
+    {
+      type: "qualify",
+      group: "couple",
+      visa: "all",
+      temperature: "unassessed",
+      availability: "pending",
+      travellers: 2,
+    },
+    "auto-qualify",
+    "aq",
+    "req",
+  );
+  await repo.command(
+    "SHARED",
+    1,
+    { type: "override", rank: "P6", reason: "Staff adjustment" },
+    "manual-priority",
+    "mp",
+    "req",
+  );
+  expect((await repo.enquiry("SHARED")).rank).toBe("P6");
+  await repo.command(
+    "SHARED",
+    2,
+    { type: "automaticPriority" },
+    "restore-priority",
+    "rp",
+    "req",
+  );
+  const result = await repo.enquiry("SHARED");
+  expect(result.rank).toBe("P1");
+  expect(result.rankRuleVersion).toBe(7);
+  expect(result.override).toBeUndefined();
+  await expect(
+    repo.command(
+      "PRIVATE",
+      0,
+      { type: "automaticPriority" },
+      "private-auto",
+      "pa",
+      "req",
+    ),
+  ).rejects.toMatchObject({ status: 404 });
+});
+it("persists automatic note/date edits and disqualification with an idempotent undo", async () => {
+  const repo = new Repository(db, staff);
+  await repo.command(
+    "SHARED",
+    0,
+    {
+      type: "setFollowup",
+      due: "2026-11-05T10:00:00Z",
+      note: "Fictional follow-up",
+    },
+    "set-followup",
+    "sf",
+    "req",
+  );
+  await repo.command(
+    "SHARED",
+    1,
+    { type: "setNote", text: "" },
+    "clear-note",
+    "cn",
+    "req",
+  );
+  let e = await repo.enquiry("SHARED");
+  expect(e.initialCallAt).toBeUndefined();
+  expect(e.currentNote).toBe("");
+  const task = e.tasks[0];
+  await repo.command(
+    "SHARED",
+    2,
+    { type: "callColour", colour: "red" },
+    "red-colour",
+    "rc",
+    "req",
+  );
+  e = await repo.enquiry("SHARED");
+  expect(e.stage).toBe("LOST");
+  expect(e.tasks[0].status).toBe("cancelled");
+  await repo.command("SHARED", 3, { type: "reopen" }, "undo-red", "ur", "req");
+  await repo.command("SHARED", 3, { type: "reopen" }, "undo-red", "ur", "req");
+  e = await repo.enquiry("SHARED");
+  expect(e.stage).toBe("NEW");
+  expect(e.revision).toBe(4);
+  expect(e.tasks.find((t) => t.id === task.id)?.status).toBe("pending");
+  expect(sqlite.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
+});

@@ -4,10 +4,12 @@ import type { Identity } from "../../shared/api";
 import type { Command, State, Trip } from "../../shared/domain";
 import { apiRepository, ApiRequestError, deleteRecord } from "./api";
 import { previewWrite, rollbackWrite, type CrmWrite } from "./optimistic";
+import { useCallingWrites } from "./use-calling-writes";
 
 export function useCrmWrites(actor?: Identity, blocked?: () => boolean) {
   const client = useQueryClient();
   const lock = useRef(false);
+  const calling = useCallingWrites(actor, () => lock.current || !!blocked?.());
   const mutation = useMutation({
     mutationKey: ["crm-write", actor?.id],
     retry: false,
@@ -60,7 +62,7 @@ export function useCrmWrites(actor?: Identity, blocked?: () => boolean) {
     },
   });
   async function save(write: CrmWrite, onPreview?: () => void, replay = false) {
-    if (lock.current || blocked?.() || !actor) return false;
+    if (lock.current || calling?.pending || blocked?.() || !actor) return false;
     lock.current = true;
     try {
       await mutation.mutateAsync({ write, onPreview, actor, replay });
@@ -77,9 +79,10 @@ export function useCrmWrites(actor?: Identity, blocked?: () => boolean) {
       (mutation.error.status >= 500 || mutation.error.status === 429));
   const sameActor = mutation.variables?.actor.id === actor?.id;
   return {
-    pending: mutation.isPending,
+    calling,
+    pending: mutation.isPending || !!calling?.pending,
     succeeded: mutation.isSuccess && sameActor,
-    locked: () => lock.current || !!blocked?.(),
+    locked: () => lock.current || !!calling?.pending || !!blocked?.(),
     error: sameActor ? mutation.error : null,
     failedWrite:
       sameActor && mutation.error ? mutation.variables?.write : undefined,
